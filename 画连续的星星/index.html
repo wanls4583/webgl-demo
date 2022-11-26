@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Document</title>
+		<style>
+			body,
+			html {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: url(../img/sky.jpg) no-repeat;
+				background-size: cover;
+			}
+			#canvas {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas"></canvas>
+		<script id="vertexShader" type="x-shader/x-vertex">
+			attribute vec4 a_Attr;
+			varying float v_Alpha;
+			void main() {
+			    gl_Position = vec4(a_Attr.x, a_Attr.y, 0, 1);
+			    gl_PointSize = a_Attr.z;
+			    v_Alpha = a_Attr.w;
+			}
+		</script>
+		<script id="fragmentShader" type="x-shader/x-fragment">
+			precision mediump float;
+			varying float v_Alpha;
+			void main() {
+			    float dis = distance(gl_PointCoord, vec2(0.5, 0.5));
+			    if(dis <= 0.5) {
+			        gl_FragColor = vec4(1, 1, 1, v_Alpha);
+			    } else {
+			        discard;
+			    }
+			}
+		</script>
+		<script>
+			class Poly {
+				constructor(gl) {
+					this.gl = gl;
+					this.vertexs = [];
+
+					const a_Attr = gl.getAttribLocation(gl.program, 'a_Attr');
+					const vertexBuffer = gl.createBuffer();
+					gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+					gl.vertexAttribPointer(a_Attr, 4, gl.FLOAT, false, 0, 0);
+					gl.enableVertexAttribArray(a_Attr);
+				}
+				addVertex(vertex) {
+					this.vertexs.push(vertex);
+				}
+				updateBuffer() {
+					const vertexs = [];
+					const { gl } = this;
+					this.vertexs.forEach(item => {
+						vertexs.push(item.x);
+						vertexs.push(item.y);
+						vertexs.push(item.size);
+						vertexs.push(item.alpha);
+					});
+					this.gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW);
+				}
+			}
+		</script>
+		<script type="module">
+			import { initShaders } from '../js/common.js';
+			import { Track } from '../js/track.js';
+
+			const canvas = document.getElementById('canvas');
+			const vSource = document.querySelector('#vertexShader').innerText;
+			const fSource = document.querySelector('#fragmentShader').innerText;
+			canvas.width = window.innerWidth;
+			canvas.height = window.innerHeight;
+
+			const gl = canvas.getContext('webgl');
+			gl.clearColor(0, 0, 0, 0); //背景色透明
+			gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
+
+			gl.enable(gl.BLEND); //开启混合
+			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); //定义混合像素算法的函数
+			initShaders(gl, vSource, fSource);
+
+			const a_Attr = gl.getAttribLocation(gl.program, 'a_Attr');
+
+			const poly = new Poly(gl);
+			const track = new Track(2000);
+			track.addTrack(
+				new Map([
+					[
+						'alpha',
+						[
+							[500, 1],
+							[1000, 0],
+							[1500, 1]
+						]
+					]
+				])
+			);
+			document.addEventListener('click', function (e) {
+				var rect = canvas.getBoundingClientRect();
+				var halfW = rect.width / 2;
+				var halfH = rect.height / 2;
+				var pos = [e.clientX - rect.left, e.clientY - rect.top];
+				pos = [pos[0] - halfW, pos[1] - halfH];
+				pos = [pos[0] / halfW, -pos[1] / halfH];
+				poly.addVertex({
+					size: Math.random() * 5 + 2,
+					alpha: 1,
+					x: pos[0],
+					y: pos[1],
+					time: Date.now()
+				});
+			});
+
+			requestAnimationFrame(render);
+
+			function render() {
+				poly.vertexs.forEach(vertex => {
+					vertex.alpha = track.getValue(vertex.time, 'alpha');
+				});
+				poly.updateBuffer();
+				gl.drawArrays(gl.POINTS, 0, poly.vertexs.length);
+				gl.drawArrays(gl.LINE_STRIP, 0, poly.vertexs.length);
+				requestAnimationFrame(render);
+			}
+		</script>
+	</body>
+</html>

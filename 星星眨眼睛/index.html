@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Document</title>
+		<style>
+			body,
+			html {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: url(../img/sky.jpg) no-repeat;
+				background-size: cover;
+			}
+			#canvas {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas"></canvas>
+		<script id="vertexShader" type="x-shader/x-vertex">
+			attribute vec4 a_Position;
+			attribute float a_PointSize;
+			void main() {
+			    // gl_Position = vec4(0, 0, 0, 1);
+			    gl_Position = a_Position;
+			    // gl_PointSize = 100.0;
+			    gl_PointSize = a_PointSize;
+			}
+		</script>
+		<script id="fragmentShader" type="x-shader/x-fragment">
+			precision mediump float;
+			uniform vec4 u_FragColor;
+			void main() {
+			    // gl_FragColor = vec4(1, 1, 0, 1);
+			    float dis = distance(gl_PointCoord, vec2(0.5, 0.5));
+			    if(dis <= 0.5) {
+			        gl_FragColor = u_FragColor;
+			    } else {
+			        discard;
+			    }
+			}
+		</script>
+		<script type="module">
+			import { initShaders } from '../js/common.js';
+			import { Track } from '../js/track.js';
+			const canvas = document.getElementById('canvas');
+			const vSource = document.querySelector('#vertexShader').innerText;
+			const fSource = document.querySelector('#fragmentShader').innerText;
+			canvas.width = window.innerWidth;
+			canvas.height = window.innerHeight;
+
+			const gl = canvas.getContext('webgl');
+			gl.clearColor(0, 0, 0, 0); //背景色透明
+			gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
+
+			gl.enable(gl.BLEND); //开启混合
+			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); //定义混合像素算法的函数
+			initShaders(gl, vSource, fSource);
+
+			const a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+			const a_PointSize = gl.getAttribLocation(gl.program, 'a_PointSize');
+			const u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
+
+			const vertexs = [];
+			const track = new Track(2000);
+			track.addTrack(
+				new Map([
+					[
+						'alpha',
+						[
+							[500, 1],
+							[1000, 0],
+							[1500, 1]
+						]
+					]
+				])
+			);
+			document.addEventListener('click', function (e) {
+				var rect = canvas.getBoundingClientRect();
+				var halfW = rect.width / 2;
+				var halfH = rect.height / 2;
+				var pos = [e.clientX - rect.left, e.clientY - rect.top];
+				pos = [pos[0] - halfW, pos[1] - halfH];
+				pos = [pos[0] / halfW, -pos[1] / halfH];
+				vertexs.push({
+					size: Math.random() * 5 + 2,
+					alpha: 1,
+					pos: pos,
+					time: Date.now()
+				});
+			});
+
+			requestAnimationFrame(render);
+
+			function render() {
+				vertexs.forEach(vertex => {
+					vertex.alpha = track.getValue(vertex.time, 'alpha');
+					gl.vertexAttrib1f(a_PointSize, vertex.size);
+					gl.uniform4f(u_FragColor, 1, 1, 1, vertex.alpha);
+					gl.vertexAttrib2f(a_Position, vertex.pos[0], vertex.pos[1]);
+					gl.drawArrays(gl.POINTS, 0, 1);
+				});
+				requestAnimationFrame(render);
+			}
+		</script>
+	</body>
+</html>
