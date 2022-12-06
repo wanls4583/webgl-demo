@@ -83,7 +83,9 @@
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
       initShaders(gl, vSource, fSource)
 
-      const matrix = new Matrix4().lookAt(new Vector3(-0.2, 0.2, 1), new Vector3(0, 0, 0), new Vector3(0, 1, 0))
+      // const matrix = new Matrix4().lookAt(new Vector3(-0.2, -0.2, 1), new Vector3(0, 0, 0), new Vector3(0, 1, 0))
+      // const matrix = lookAt1(new Vector3(-0.2, -0.2, 1), new Vector3(0, 0, 0), new Vector3(0, 1, 0))
+      const matrix = lookAt2([-0.2, -0.2, 1], [0, 0, 0], [0, 1, 0])
       const u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
       gl.uniformMatrix4fv(u_ViewMatrix, false, matrix.elements)
 
@@ -121,6 +123,59 @@
       })
       poly.updateBuffer()
       gl.drawArrays(gl.LINES, 0, poly.vertexs.length)
+
+      //视图矩阵
+      // function lookAt1(e, t, u) {
+      //   //目标点到视点的向量
+      //   const d = new Vector3().subVectors(e, t)
+      //   d.normalize()
+      //   console.log(e);
+      //   console.log(t);
+      //   console.log(d);
+      //   //d和上方向的垂线
+      //   const a = new Vector3().crossVectors(u, d)
+      //   a.normalize()
+      //   //d和a的垂线
+      //   const b = new Vector3().crossVectors(d, a)
+      //   b.normalize()
+      //   //c 基于d取反
+      //   const c = new Vector3(-d.x, -d.y, -d.z)
+      //   const obj = {
+      //     elements: [
+      //       a.x, b.x, c.x, 0, 
+      //       a.y, b.y, c.y, 0, 
+      //       a.z, b.z, c.z, 0, 
+      //       0, 0, 0, 1
+      //     ]
+      //   }
+      //   return obj;
+      // }
+
+      // 视图矩阵
+      function lookAt2(e, t, u) {
+        let c = _subVectors(e, t)
+        let a = _crossVectors(u, c)
+        let b = _crossVectors(c, a)
+        let obj = {
+          elements: [
+            a[0], b[0], -c[0], 0, 
+            a[1], b[1], -c[1], 0, 
+            a[2], b[2], -c[2], 0, 
+            0, 0, 0, 1]
+        }
+        return obj
+
+        function _crossVectors(a, b) {
+          let x = a[1] * b[2] - a[2] * b[1]
+          let y = a[2] * b[0] - a[0] * b[2]
+          let z = a[0] * b[1] - a[1] * b[0]
+          return [x, y, z]
+        }
+
+        function _subVectors(a, b) {
+          return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+        }
+      }
     </script>
   </body>
 </html>
