@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+         attribute vec4 a_Position;
+      uniform mat4 u_ViewMatrix;
+         void main() {
+             gl_Position = u_ViewMatrix * a_Position;
+             gl_PointSize = 2.0;
+         }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      void main() {
+          float dis = distance(gl_PointCoord, vec2(0.5, 0.5));
+          if(dis <= 0.5) {
+              gl_FragColor = vec4(1, 1, 1, 1);
+          } else {
+              discard;
+          }
+      }
+    </script>
+    <script>
+      class Poly {
+        constructor(gl) {
+          this.gl = gl
+          this.vertexs = []
+
+          const a_Position = gl.getAttribLocation(gl.program, 'a_Position')
+          const vertexBuffer = gl.createBuffer()
+          gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+          gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0)
+          gl.enableVertexAttribArray(a_Position)
+        }
+        addVertex(vertex) {
+          this.vertexs.push(vertex)
+        }
+        updateBuffer() {
+          const vertexs = []
+          const { gl } = this
+          this.vertexs.forEach(item => {
+            vertexs.push(...item)
+          })
+          this.gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        }
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import { Track } from '../js/track.js'
+      import { Matrix4, Vector3 } from 'https://unpkg.com/three/build/three.module.js'
+
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      gl.clearColor(0, 0, 0, 1) //背景色
+      gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
+
+      gl.enable(gl.BLEND) //开启混合
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
+      initShaders(gl, vSource, fSource)
+
+      const matrix = new Matrix4().lookAt(new Vector3(-0.2, 0.2, 1), new Vector3(0, 0, 0), new Vector3(0, 1, 0))
+      const u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
+      gl.uniformMatrix4fv(u_ViewMatrix, false, matrix.elements)
+
+      const poly = new Poly(gl)
+      const vertexs = [
+        //下面
+        [-0.1, 0.1, -0.1],
+        [0.1, 0.1, -0.1],
+        [0.1, -0.1, -0.1],
+        [-0.1, -0.1, -0.1],
+        //上面
+        [-0.1, 0.1, 0.1],
+        [0.1, 0.1, 0.1],
+        [0.1, -0.1, 0.1],
+        [-0.1, -0.1, 0.1]
+      ]
+      const posList = [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 0],
+        [0, 4],
+        [1, 5],
+        [2, 6],
+        [3, 7],
+        [4, 5],
+        [5, 6],
+        [6, 7],
+        [7, 4]
+      ]
+      posList.forEach(line => {
+        line.forEach(i => {
+          poly.addVertex(vertexs[i])
+        })
+      })
+      poly.updateBuffer()
+      gl.drawArrays(gl.LINES, 0, poly.vertexs.length)
+    </script>
+  </body>
+</html>

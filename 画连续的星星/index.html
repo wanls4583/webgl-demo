@@ -89,8 +89,6 @@
 			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); //定义混合像素算法的函数
 			initShaders(gl, vSource, fSource);
 
-			const a_Attr = gl.getAttribLocation(gl.program, 'a_Attr');
-
 			const poly = new Poly(gl);
 			const track = new Track(2000);
 			track.addTrack(
