@@ -125,31 +125,31 @@
       gl.drawArrays(gl.LINES, 0, poly.vertexs.length)
 
       //视图矩阵
-      // function lookAt1(e, t, u) {
-      //   //目标点到视点的向量
-      //   const d = new Vector3().subVectors(e, t)
-      //   d.normalize()
-      //   console.log(e);
-      //   console.log(t);
-      //   console.log(d);
-      //   //d和上方向的垂线
-      //   const a = new Vector3().crossVectors(u, d)
-      //   a.normalize()
-      //   //d和a的垂线
-      //   const b = new Vector3().crossVectors(d, a)
-      //   b.normalize()
-      //   //c 基于d取反
-      //   const c = new Vector3(-d.x, -d.y, -d.z)
-      //   const obj = {
-      //     elements: [
-      //       a.x, b.x, c.x, 0, 
-      //       a.y, b.y, c.y, 0, 
-      //       a.z, b.z, c.z, 0, 
-      //       0, 0, 0, 1
-      //     ]
-      //   }
-      //   return obj;
-      // }
+      function lookAt1(e, t, u) {
+        //目标点到视点的向量
+        const d = new Vector3().subVectors(e, t)
+        d.normalize()
+        console.log(e);
+        console.log(t);
+        console.log(d);
+        //d和上方向的垂线
+        const a = new Vector3().crossVectors(u, d)
+        a.normalize()
+        //d和a的垂线
+        const b = new Vector3().crossVectors(d, a)
+        b.normalize()
+        //c 基于d取反
+        const c = new Vector3(-d.x, -d.y, -d.z)
+        const obj = {
+          elements: [
+            a.x, b.x, c.x, 0, 
+            a.y, b.y, c.y, 0, 
+            a.z, b.z, c.z, 0, 
+            0, 0, 0, 1
+          ]
+        }
+        return obj;
+      }
 
       // 视图矩阵
       function lookAt2(e, t, u) {
