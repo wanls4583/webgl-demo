@@ -58,8 +58,8 @@
 				[0.5, 0.5],
 				[0.5, -0.5],
 			]
-			const maxU = 2; //U坐标放大两倍后，对应的原图S坐标仍然为1
-			const maxV = 2; //V坐标放大两倍后，对应的原图T坐标仍然为1
+			const maxU = 1;
+			const maxV = 1;
 			const pins = [
 				[0, maxV], //左上
 				[0, 0], //左下
@@ -79,7 +79,7 @@
 			gl.bindTexture(gl.TEXTURE_2D, texture);
 
 			const img = new Image();
-			img.src = '../img/erha.jpg'; //256*256
+			img.src = '../img/erha.jpg';
 			img.onload = ()=>{
 				gl.texImage2D(
 					gl.TEXTURE_2D,
@@ -89,22 +89,20 @@
 					gl.UNSIGNED_BYTE,
 					img
 				)
-				//设置纹理参数
+				// 创建分子贴图（图片尺寸必须是2的幂），提高缩小滤波器的计算效率
+				gl.generateMipmap(gl.TEXTURE_2D);
 				gl.texParameteri(
 					gl.TEXTURE_2D,
 					gl.TEXTURE_MIN_FILTER, //缩小滤波器
-					gl.LINEAR
+					// gl.LINEAR,
+					// gl.NEAREST,
+					gl.NEAREST_MIPMAP_LINEAR, //默认选项（必须创建分子贴图才有效）
 				)
 				gl.texParameteri(
 					gl.TEXTURE_2D,
-					gl.TEXTURE_WRAP_S,
-					// gl.REPEAT, //原图S坐标向上复制，这也是默认值
-					gl.MIRRORED_REPEAT, //垂直镜像复制
-				)
-				gl.texParameteri(
-					gl.TEXTURE_2D,
-					gl.TEXTURE_WRAP_T,
-					gl.REPEAT //原图T坐标向上复制，这也是默认值
+					gl.TEXTURE_MAG_FILTER, //放大滤波器
+					gl.LINEAR,
+					// gl.NEAREST,
 				)
 				gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
 				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
