@@ -58,11 +58,13 @@
 				[0.5, 0.5],
 				[0.5, -0.5],
 			]
+			const maxU = 2; //U坐标放大两倍后，对应的原图S坐标仍然为1
+			const maxV = 2; //V坐标放大两倍后，对应的原图T坐标仍然为1
 			const pins = [
-				[0, 1], //左上
+				[0, maxV], //左上
 				[0, 0], //左下
-				[1, 1], //右上
-				[1, 0], //右下
+				[maxU, maxV], //右上
+				[maxU, 0], //右下
 			]
 			enableVertexAttribArray('a_Position', vertexs, 2);
 			enableVertexAttribArray('a_Pin', pins, 2);
@@ -78,7 +80,6 @@
 
 			const img = new Image();
 			img.src = '../img/erha.jpg'; //256*256
-			// img.src = '../img/erha3.jpg'; //300*300
 			img.onload = ()=>{
 				gl.texImage2D(
 					gl.TEXTURE_2D,
@@ -94,16 +95,15 @@
 					gl.TEXTURE_MIN_FILTER,
 					gl.LINEAR
 				)
-				// 对于图像尺寸非二次幂的情况下，需要开启以下两个参数
 				// gl.texParameteri(
 				// 	gl.TEXTURE_2D,
 				// 	gl.TEXTURE_WRAP_S,
-				// 	gl.CLAMP_TO_EDGE
+				// 	gl.REPEAT //原图S坐标向上复制，这也是默认值
 				// )
 				// gl.texParameteri(
 				// 	gl.TEXTURE_2D,
 				// 	gl.TEXTURE_WRAP_T,
-				// 	gl.CLAMP_TO_EDGE
+				// 	gl.REPEAT //原图T坐标向上复制，这也是默认值
 				// )
 				gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
 				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
