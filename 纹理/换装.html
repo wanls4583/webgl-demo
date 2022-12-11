@@ -64,7 +64,7 @@
 
       initShaders(gl, vSource, fSource)
 
-      //图像预处理，上下翻转图片坐标
+      //图像预处理，上下翻转图片坐标，是图片坐标原点位于左下角
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 
       const vertexs = [
