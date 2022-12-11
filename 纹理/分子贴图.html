@@ -69,7 +69,7 @@
 			enableVertexAttribArray('a_Position', vertexs, 2);
 			enableVertexAttribArray('a_Pin', pins, 2);
 
-			//图像预处理，上下翻转图形，也可以通过对换左上/下，右上/下来实现上下翻转
+			//图像预处理，上下翻转图片坐标
 			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 
 			const u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler');

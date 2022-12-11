@@ -60,7 +60,7 @@
       gl.enable(gl.DEPTH_TEST)
       initShaders(gl, vSource, fSource)
 
-      //图像预处理，上下翻转图形
+      //图像预处理，上下翻转图片坐标
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 
       const vertexs = [
@@ -108,7 +108,7 @@
         [0.5, -0.5, -0.5]
       ]
 
-      // 经过图形预处理上下翻转图像后，纹理源图坐标原点为左下角
+      // 经过图形预处理上下翻转图像坐标后，纹理源图坐标原点为左下角
       const pins = [
         //后
         [0, 0],
