@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      .wrap {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: black;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <canvas id="canvas"></canvas>
+    </div>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      attribute vec2 a_Pin;
+      varying vec2 u_Pin;
+      void main() {
+         gl_Position = a_Position;
+         u_Pin = a_Pin;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform sampler2D u_Dress;
+      uniform sampler2D u_Pattern;
+      uniform sampler2D u_Mask;
+      varying vec2 u_Pin;
+      void main() {
+        vec4 dress = texture2D(u_Dress, u_Pin);
+        vec4 parttern = texture2D(u_Pattern, u_Pin);
+        vec4 mask = texture2D(u_Mask, u_Pin);
+        if(mask.x > 0.5) {
+          gl_FragColor = mix(dress, parttern, 0.5);
+        } else {
+          gl_FragColor = dress;
+        }
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = 256
+      canvas.height = 512
+
+      const gl = canvas.getContext('webgl')
+
+      initShaders(gl, vSource, fSource)
+
+      //图像预处理，上下翻转图形
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+
+      const vertexs = [
+        [-1, 1, 0],
+        [-1, -1, 0],
+        [1, 1, 0],
+        [1, -1, 0]
+      ]
+      const pins = [
+        [0, 1],
+        [0, 0],
+        [1, 1],
+        [1, 0]
+      ]
+      enableVertexAttribArray('a_Position', vertexs, 3)
+      enableVertexAttribArray('a_Pin', pins, 2)
+
+      const pattern1 = loadImg({
+        src: '../img/pattern0.jpg',
+        uniform: 'u_Pattern',
+        samplerId: 0
+      })
+      const pattern2 = loadImg({
+        src: '../img/pattern1.jpg',
+        uniform: 'u_Pattern',
+        samplerId: 1
+      })
+      const mask = loadImg({
+        src: '../img/mask-dress.jpg',
+        uniform: 'u_Mask',
+        samplerId: 2
+      })
+      const dress = loadImg({
+        src: '../img/dress.jpg',
+        uniform: 'u_Dress',
+        samplerId: 3
+      })
+
+      Promise.all([dress, pattern1, pattern2, mask]).then(() => {
+        render()
+      })
+
+      let i = 1
+      function render() {
+        const u_Sampler = gl.getUniformLocation(gl.program, 'u_Pattern')
+        i = i == 1 ? 0 : 1
+        gl.uniform1i(u_Sampler, i)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexs.length)
+        setTimeout(() => {
+          render()
+        }, 1000)
+      }
+
+      function loadImg({ src, uniform, samplerId }) {
+        return new Promise(resolve => {
+          const img = new Image()
+          img.src = src
+          img.onload = () => {
+            const u_Sampler = gl.getUniformLocation(gl.program, uniform)
+            const texture = gl.createTexture()
+            gl.uniform1i(u_Sampler, samplerId)
+            gl.activeTexture(gl[`TEXTURE${samplerId}`])
+            gl.bindTexture(gl.TEXTURE_2D, texture)
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+            resolve()
+          }
+        })
+      }
+
+      function enableVertexAttribArray(prop, vertexs, size) {
+        const attr = gl.getAttribLocation(gl.program, prop)
+        const vertexBuffer = gl.createBuffer()
+        vertexs = vertexs.flat()
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        gl.vertexAttribPointer(attr, size, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(attr)
+      }
+    </script>
+  </body>
+</html>
