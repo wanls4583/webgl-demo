@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      attribute vec2 a_Pin;
+      varying vec2 u_Pin;
+      uniform mat4 u_ModelMatrix;
+      void main() {
+         gl_Position = u_ModelMatrix*a_Position;
+         u_Pin = a_Pin;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform sampler2D u_Sampler;
+      varying vec2 u_Pin;
+      void main() {
+      	gl_FragColor = texture2D(u_Sampler, u_Pin);
+      	//gl_FragColor = vec4(1,0,0,1);
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import { Matrix4, Vector3 } from 'https://unpkg.com/three/build/three.module.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      gl.clearColor(0, 0, 0, 1) //背景色
+
+      gl.enable(gl.CULL_FACE)
+      //gl.enable(gl.DEPTH_TEST)
+      initShaders(gl, vSource, fSource)
+
+      const vertexs = [
+        //后
+        [-0.5, -0.5, -0.5],
+        [-0.5, 0.5, -0.5],
+        [0.5, -0.5, -0.5],
+        [-0.5, 0.5, -0.5],
+        [0.5, 0.5, -0.5],
+        [0.5, -0.5, -0.5],
+        //前
+        [-0.5, -0.5, 0.5],
+        [0.5, -0.5, 0.5],
+        [-0.5, 0.5, 0.5],
+        [-0.5, 0.5, 0.5],
+        [0.5, -0.5, 0.5],
+        [0.5, 0.5, 0.5],
+        //上
+        [-0.5, 0.5, -0.5],
+        [-0.5, 0.5, 0.5],
+        [0.5, 0.5, -0.5],
+        [-0.5, 0.5, 0.5],
+        [0.5, 0.5, 0.5],
+        [0.5, 0.5, -0.5],
+        //下
+        [-0.5, -0.5, -0.5],
+        [0.5, -0.5, -0.5],
+        [-0.5, -0.5, 0.5],
+        [-0.5, -0.5, 0.5],
+        [0.5, -0.5, -0.5],
+        [0.5, -0.5, 0.5],
+        //左
+        [-0.5, -0.5, -0.5],
+        [-0.5, -0.5, 0.5],
+        [-0.5, 0.5, -0.5],
+        [-0.5, -0.5, 0.5],
+        [-0.5, 0.5, 0.5],
+        [-0.5, 0.5, -0.5],
+        //右
+        [0.5, -0.5, -0.5],
+        [0.5, 0.5, -0.5],
+        [0.5, -0.5, 0.5],
+        [0.5, -0.5, 0.5],
+        [0.5, 0.5, -0.5],
+        [0.5, 0.5, 0.5]
+      ]
+      const pins = [
+        //后
+        [0, 0],
+        [0, 0.5],
+        [0.25, 0],
+        [0, 0.5],
+        [0.25, 0.5],
+        [0.25, 0],
+        //前
+        [0.25, 0],
+        [0.5, 0],
+        [0.25, 0.5],
+        [0.25, 0.5],
+        [0.5, 0],
+        [0.5, 0.5],
+        //上
+        [0.5, 0],
+        [0.5, 0.5],
+        [0.75, 0],
+        [0.5, 0.5],
+        [0.75, 0.5],
+        [0.75, 0],
+        //下
+        [0, 0.5],
+        [0.25, 0.5],
+        [0, 1],
+        [0, 1],
+        [0.25, 0.5],
+        [0.25, 1],
+        //左
+        [0.25, 0.5],
+        [0.25, 1],
+        [0.5, 0.5],
+        [0.25, 1],
+        [0.5, 1],
+        [0.5, 0.5],
+        //右
+        [0.5, 0.5],
+        [0.75, 0.5],
+        [0.5, 1],
+        [0.5, 1],
+        [0.75, 0.5],
+        [0.75, 1]
+      ]
+      enableVertexAttribArray('a_Position', vertexs, 3)
+      enableVertexAttribArray('a_Pin', pins, 2)
+
+      //图像预处理，上下翻转图形，也可以通过对换左上/下，右上/下来实现上下翻转
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+
+      const u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler')
+      const texture = gl.createTexture()
+      gl.uniform1i(u_Sampler, 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+
+      const modelMatrix = new Matrix4()
+      const mx = new Matrix4().makeRotationX(0.2)
+      const my = new Matrix4().makeRotationY(0.2)
+      const u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix')
+      modelMatrix.multiply(my).multiply(mx)
+      gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
+
+      const img = new Image()
+      img.src = '../img/mf2.jpg'
+      img.onload = () => {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
+        gl.drawArrays(gl.TRIANGLES, 0, vertexs.length)
+      }
+
+      function enableVertexAttribArray(prop, vertexs, size) {
+        const attr = gl.getAttribLocation(gl.program, prop)
+        const vertexBuffer = gl.createBuffer()
+        vertexs = vertexs.flat()
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        gl.vertexAttribPointer(attr, size, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(attr)
+      }
+    </script>
+  </body>
+</html>
