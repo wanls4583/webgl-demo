@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      void main() {
+       gl_Position = a_Position;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform vec2 u_Start;
+      uniform vec2 u_End;
+      uniform vec4 u_StartColor;
+      uniform vec4 u_EndColor;
+      vec2 se = u_End - u_Start;
+      vec2 normal = normalize(se);
+      float seLen = length(se);
+      
+      void main() {
+        vec2 sf = vec2(gl_FragCoord) - u_Start;
+        float ratio = clamp(dot(sf, normal), 0.0, seLen) / seLen;
+        gl_FragColor = u_StartColor + ratio * (u_EndColor - u_StartColor);
+        //gl_FragColor = vec4(1, 0, 1, 1);
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import Poly from '../js/Poly.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      initShaders(gl, vSource, fSource)
+
+      new Poly({
+        gl: gl,
+        type: 'TRIANGLE_STRIP',
+        source: [
+          [-1, 1],
+          [-1, -1],
+          [1, 1],
+          [1, -1]
+        ],
+        attributes: {
+          a_Position: {
+            size: 2,
+            index: 0
+          }
+        },
+        uniforms: {
+          u_Start: {
+            type: 'uniform2f',
+            value: [canvas.width * 0.25, canvas.height]
+          },
+          u_End: {
+            type: 'uniform2f',
+            value: [canvas.width * 0.75, 0]
+          },
+          u_StartColor: {
+            type: 'uniform4f',
+            value: [1, 0, 0, 0.8]
+          },
+          u_EndColor: {
+            type: 'uniform4f',
+            value: [0, 1, 0, 0.8]
+          }
+        }
+      })
+    </script>
+  </body>
+</html>
