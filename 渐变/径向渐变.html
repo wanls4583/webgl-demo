@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      void main() {
+       gl_Position = a_Position;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform float u_StartR;
+      uniform float u_EndR;
+      uniform vec2 u_Center;
+      uniform vec4 u_Color0;
+      uniform vec4 u_Color1;
+      uniform vec4 u_Color2;
+      uniform vec3 u_Stops;
+      float seLen = u_EndR - u_StartR;
+
+      vec4 getColorByIndex(int i) {
+        if(i == 0) {
+          return u_Color0;
+        }
+        if(i == 1) {
+          return u_Color1;
+        }
+        if(i == 2) {
+          return u_Color2;
+        }
+      }
+
+      vec4 getColor() {
+        float sf = length(vec2(gl_FragCoord) - u_Center);
+        float ratio = clamp(sf, u_StartR, u_EndR) / seLen;
+        float preRatio = u_Stops[0];
+        float nowRatio;
+        vec4 preColor = getColorByIndex(0);
+        vec4 nowColor;
+        vec4 color = getColorByIndex(2);
+        for(int i = 0; i < 3; i++) {
+          nowColor = getColorByIndex(i);
+          nowRatio = u_Stops[i];
+          if(ratio < nowRatio) {
+            if(i == 0) {
+              color = nowColor;
+            } else {
+              color = preColor + (nowColor - preColor) * (ratio - preRatio) / (nowRatio - preRatio);
+            }
+            break;
+          }
+          preColor = nowColor;
+          preRatio = nowRatio;
+        }
+        return color;
+      }
+      
+      void main() {
+        gl_FragColor = getColor();
+        //gl_FragColor = vec4(1, 0, 1, 1);
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import Poly from '../js/Poly.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      initShaders(gl, vSource, fSource)
+
+      new Poly({
+        gl: gl,
+        type: 'TRIANGLE_STRIP',
+        source: [
+          [-1, 1],
+          [-1, -1],
+          [1, 1],
+          [1, -1]
+        ],
+        attributes: {
+          a_Position: {
+            size: 2,
+            index: 0
+          }
+        },
+        uniforms: {
+          u_StartR: {
+            type: 'uniform1f',
+            value: 50
+          },
+          u_EndR: {
+            type: 'uniform1f',
+            value: 500
+          },
+          u_Center: {
+            type: 'uniform2f',
+            value: [canvas.width / 2, canvas.height / 2]
+          },
+          u_Color0: {
+            type: 'uniform4f',
+            value: [1, 0, 0, 0.8]
+          },
+          u_Color1: {
+            type: 'uniform4f',
+            value: [0, 1, 0, 0.8]
+          },
+          u_Color2: {
+            type: 'uniform4f',
+            value: [0, 0, 1, 0.8]
+          },
+          u_Stops: {
+            type: 'uniform3f',
+            value: [0.25, 0.5, 0.75]
+          }
+        }
+      })
+    </script>
+  </body>
+</html>
