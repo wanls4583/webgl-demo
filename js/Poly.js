@@ -67,7 +67,7 @@ export default class {
             const { imageData, minFilter, magFilter, wrapS, wrapT } = value;
             const texture = gl.createTexture();
             const u_Sampler = gl.getUniformLocation(gl.program, key);
-            gl.unform1i(u_Sampler, index);
+            gl.uniform1i(u_Sampler, index);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
             gl.activeTexture(gl[`TEXTURE${index}`]);
             gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -79,13 +79,11 @@ export default class {
                 gl.UNSIGNED_BYTE,
                 imageData
             )
-            if (minFilter) {
-                gl.texParameteri(
-                    gl.TEXTURE_2D,
-                    gl.TEXTURE_MIN_FILTER,
-                    minFilter
-                )
-            }
+            gl.texParameteri(
+                gl.TEXTURE_2D,
+                gl.TEXTURE_MIN_FILTER,
+                minFilter || gl.LINEAR
+            )
             if (magFilter) {
                 gl.texParameteri(
                     gl.TEXTURE_2D,
@@ -116,9 +114,10 @@ export default class {
     loadImg(image) {
         return new Promise((resolve) => {
             if (typeof image === 'string') {
-                image = new Image(image);
-                image.onload = () => {
-                    resolve(image);
+                let img = new Image();
+                img.src = image;
+                img.onload = () => {
+                    resolve(img);
                 }
             } else {
                 resolve(image);
