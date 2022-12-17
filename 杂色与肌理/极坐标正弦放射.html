@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      void main() {
+       gl_Position = a_Position;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform vec2 u_Center;
+      uniform float u_Angle;
+      mat2 m = mat2(cos(u_Angle), sin(u_Angle), -sin(u_Angle), cos(u_Angle));
+      float a = 0.5; //控制振幅
+      float omega = 8.0; //控制频率
+
+      float rand(vec2 v){
+        vec2 a = vec2(0.1234,0.5678);
+        float n = dot(v, a);
+        return fract(sin(n)*10000.0);
+      }
+
+      vec4 getColor(vec2 fragCoord) {
+        vec2 p = m * (fragCoord - u_Center);
+        float r = atan(p.y, p.x);
+        float f = a * sin(r * omega) + 0.5;
+        return vec4(f, f, f, 1);
+      }
+
+      void main() {
+        gl_FragColor = getColor(gl_FragCoord.xy);
+        //gl_FragColor = vec4(0, 1, 1, 1);
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import Poly from '../js/Poly.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      initShaders(gl, vSource, fSource)
+
+      let poly = new Poly({
+        gl: gl,
+        type: 'TRIANGLE_STRIP',
+        source: [
+          [-1, 1],
+          [-1, -1],
+          [1, 1],
+          [1, -1]
+        ],
+        attributes: {
+          a_Position: {
+            size: 2,
+            index: 0
+          }
+        },
+        uniforms: {
+          u_Center: {
+            type: 'uniform2f',
+            value: [canvas.width / 2, canvas.height / 2]
+          },
+          u_Angle: {
+            type: 'uniform1f',
+            value: 0
+          }
+        }
+      })
+
+      let angle = 0;
+      (function render() {
+        angle += 0.01;
+        angle = angle % (Math.PI * 2);
+        poly.option.uniforms.u_Angle.value = angle;
+        poly.update();
+        requestAnimationFrame(render);
+      })()
+    </script>
+  </body>
+</html>
