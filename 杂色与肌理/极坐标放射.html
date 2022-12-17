@@ -30,18 +30,24 @@
     </script>
     <script id="fragmentShader" type="x-shader/x-fragment">
       precision mediump float;
-      uniform float u_Angle;
-      mat2 m = mat2(cos(u_Angle), sin(u_Angle), -sin(u_Angle), cos(u_Angle));
+      uniform vec2 u_Center;
 
-      float rand(){
-        vec2 a = m * vec2(0.1234,0.5678);
-        float n = dot(gl_FragCoord.xy, a);
+      float rand(vec2 v){
+        vec2 a = vec2(0.1234,0.5678);
+        float n = dot(v, a);
         return fract(sin(n)*10000.0);
       }
 
+      vec4 getColor(vec2 fragCoord) {
+        vec2 p = fragCoord - u_Center;
+        float r = atan(p.y, p.x);
+        float f = rand(vec2(int(r * 32.0), 0));
+        return vec4(f, f, f, 1);
+      }
+
       void main() {
-        float f = rand();
-        gl_FragColor = vec4(f, f, f, 1);
+        gl_FragColor = getColor(gl_FragCoord.xy);
+        //gl_FragColor = vec4(0, 1, 1, 1);
       }
     </script>
     <script type="module">
@@ -72,20 +78,12 @@
           }
         },
         uniforms: {
-          u_Angle: {
-            type: 'uniform1f',
-            value: 0
+          u_Center: {
+            type: 'uniform2f',
+            value: [canvas.width / 2, canvas.height / 2]
           }
         }
       })
-
-      let angle = 0;
-      (function render() {
-        angle++;
-        poly.option.uniforms.u_Angle.value = angle;
-        poly.update();
-        requestAnimationFrame(render);
-      })()
     </script>
   </body>
 </html>
