@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      void main() {
+       gl_Position = a_Position;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform vec4 u_Color0;
+      uniform vec4 u_Color1;
+      uniform vec4 u_Color2;
+      uniform vec2 u_Center;
+      float r = 200.0;
+
+      //点1
+      vec2 p1=vec2(u_Center.x - r , u_Center.y - r);
+      vec4 c1=vec4(1,1,0,1);
+
+      //点2
+      vec2 p2=vec2(u_Center.x + r , u_Center.y - r);
+      vec4 c2=vec4(0,1,1,1);
+
+      //点3
+      vec2 p3=vec2(u_Center.x, u_Center.y + r);
+      vec4 c3=vec4(1,0,1,1);
+
+      vec2 v12 = p2 - p1;
+      vec2 v13 = p3 - p1;
+      vec2 v23 = p3 - p2;
+
+      vec4 c23 = c3 - c2;
+
+      float pi = radians(180.0);
+
+      float getAngle(vec2 v) {
+        float r = atan(v.y, v.x) + pi;
+        return r;
+      }
+
+      vec4 getColor() {
+        vec2 v1f = gl_FragCoord.xy - p1;
+        float z1 = cross(vec3(v12, 0), vec3(v1f, 0)).z;
+        float z2 = cross(vec3(v13, 0), vec3(v1f, 0)).z;
+        float z3 = cross(vec3(v23, 0), vec3(gl_FragCoord.xy - p2, 0)).z;
+        vec4 color = vec4(0, 0, 0, 1);
+        //在三角形内
+        if(z1 > 0.0 && z2 < 0.0 && z3 > 0.0) {
+          float ang12 = getAngle(v12);
+          float ang1f = getAngle(v1f);
+          float ang13 = getAngle(v13);
+          float ratio = (ang1f - ang12) / (ang13 - ang12);
+          vec2 p4 = p2 + v23 * ratio;
+          vec4 c4 = c2 + c23 * ratio;
+          ratio = length(v1f) / length(p4 - p1);
+          color = c1 + (c4 - c1) * ratio;
+        }
+        return color;
+      }
+
+      void main() {
+        gl_FragColor = getColor();
+        //gl_FragColor = vec4(1, 0, 1, 1);
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import Poly from '../js/Poly.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      initShaders(gl, vSource, fSource)
+
+      new Poly({
+        gl: gl,
+        type: 'TRIANGLE_STRIP',
+        source: [
+          [-1, 1],
+          [-1, -1],
+          [1, 1],
+          [1, -1]
+        ],
+        attributes: {
+          a_Position: {
+            size: 2,
+            index: 0
+          }
+        },
+        uniforms: {
+          u_Center: {
+            type: 'uniform2f',
+            value: [canvas.width / 2, canvas.height / 2]
+          },
+          u_Color0: {
+            type: 'uniform4f',
+            value: [1, 0, 0, 1]
+          },
+          u_Color1: {
+            type: 'uniform4f',
+            value: [0, 1, 0, 1]
+          },
+          u_Color2: {
+            type: 'uniform4f',
+            value: [0, 0, 1, 1]
+          },
+        }
+      })
+    </script>
+  </body>
+</html>
