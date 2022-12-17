@@ -37,16 +37,16 @@
       float r = 200.0;
 
       //点1
-      vec2 p1=vec2(u_Center.x - r , u_Center.y - r);
-      vec4 c1=vec4(1,1,0,1);
+      vec2 p1 = vec2(u_Center.x - r , u_Center.y - r);
+      vec4 c1 = u_Color0;
 
       //点2
-      vec2 p2=vec2(u_Center.x + r , u_Center.y - r);
-      vec4 c2=vec4(0,1,1,1);
+      vec2 p2 = vec2(u_Center.x + r , u_Center.y - r);
+      vec4 c2 = u_Color1;
 
       //点3
-      vec2 p3=vec2(u_Center.x, u_Center.y + r);
-      vec4 c3=vec4(1,0,1,1);
+      vec2 p3 = vec2(u_Center.x, u_Center.y + r);
+      vec4 c3 = u_Color2;
 
       vec2 v12 = p2 - p1;
       vec2 v13 = p3 - p1;
