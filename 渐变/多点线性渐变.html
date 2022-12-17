@@ -32,16 +32,49 @@
       precision mediump float;
       uniform vec2 u_Start;
       uniform vec2 u_End;
-      uniform vec4 u_StartColor;
-      uniform vec4 u_EndColor;
+      uniform vec4 u_Color0;
+      uniform vec4 u_Color1;
+      uniform vec4 u_Color2;
+      uniform vec3 u_Stops;
       vec2 se = u_End - u_Start;
       vec2 normal = normalize(se);
       float seLen = length(se);
+
+      vec4 getColor(int i) {
+        if(i == 0) {
+          return u_Color0;
+        }
+        if(i == 1) {
+          return u_Color1;
+        }
+        if(i == 2) {
+          return u_Color2;
+        }
+      }
       
       void main() {
         vec2 sf = vec2(gl_FragCoord) - u_Start;
         float ratio = clamp(dot(sf, normal), 0.0, seLen) / seLen;
-        gl_FragColor = u_StartColor + ratio * (u_EndColor - u_StartColor);
+        float preRatio = u_Stops[0];
+        float nowRatio;
+        vec4 preColor = getColor(0);
+        vec4 nowColor;
+        vec4 color = getColor(2);
+        for(int i = 0; i < 3; i++) {
+          nowColor = getColor(i);
+          nowRatio = u_Stops[i];
+          if(ratio < nowRatio) {
+            if(i == 0) {
+              color = nowColor;
+            } else {
+              color = preColor + (nowColor - preColor) * (ratio - preRatio) / (nowRatio - preRatio);
+            }
+            break;
+          }
+          preColor = nowColor;
+          preRatio = nowRatio;
+        }
+        gl_FragColor = color;
         //gl_FragColor = vec4(1, 0, 1, 1);
       }
     </script>
@@ -75,19 +108,27 @@
         uniforms: {
           u_Start: {
             type: 'uniform2f',
-            value: [canvas.width * 0.25, canvas.height]
+            value: [0, canvas.height / 2]
           },
           u_End: {
             type: 'uniform2f',
-            value: [canvas.width * 0.75, 0]
+            value: [canvas.width, canvas.height / 2]
           },
-          u_StartColor: {
+          u_Color0: {
             type: 'uniform4f',
             value: [1, 0, 0, 0.8]
           },
-          u_EndColor: {
+          u_Color1: {
             type: 'uniform4f',
             value: [0, 1, 0, 0.8]
+          },
+          u_Color2: {
+            type: 'uniform4f',
+            value: [0, 0, 1, 0.8]
+          },
+          u_Stops: {
+            type: 'uniform3f',
+            value: [0.25, 0.5, 0.75]
           }
         }
       })
