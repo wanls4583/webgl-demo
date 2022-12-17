@@ -14,9 +14,9 @@ export default class {
     constructor(option) {
         this.option = Object.assign(defaultOption(), option);
         this.option.source = new Float32Array(this.option.source.flat());
-        this.init();
+        this.update();
     }
-    async init() {
+    async update() {
         this.updateAttribute();
         this.updateUniform();
         await this.updateMap();
