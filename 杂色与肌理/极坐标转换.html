@@ -46,7 +46,7 @@
       }
     </script>
     <script type="module">
-      import { initShaders } from '../js/common.js'
+      import { initShaders, loadImg } from '../js/common.js'
       import Poly from '../js/Poly.js'
       const canvas = document.getElementById('canvas')
       const vSource = document.querySelector('#vertexShader').innerText
@@ -57,32 +57,34 @@
       const gl = canvas.getContext('webgl')
       initShaders(gl, vSource, fSource)
 
-      let poly = new Poly({
-        gl: gl,
-        type: 'TRIANGLE_STRIP',
-        source: [
-          [-1, 1],
-          [-1, -1],
-          [1, 1],
-          [1, -1]
-        ],
-        attributes: {
-          a_Position: {
-            size: 2,
-            index: 0
+      loadImg('../img/room.jpg').then(image => {
+        new Poly({
+          gl: gl,
+          type: 'TRIANGLE_STRIP',
+          source: [
+            [-1, 1],
+            [-1, -1],
+            [1, 1],
+            [1, -1]
+          ],
+          attributes: {
+            a_Position: {
+              size: 2,
+              index: 0
+            }
+          },
+          uniforms: {
+            u_Center: {
+              type: 'uniform2f',
+              value: [canvas.width / 2, canvas.height / 2]
+            }
+          },
+          maps: {
+            u_Sampler: {
+              image: image
+            }
           }
-        },
-        uniforms: {
-          u_Center: {
-            type: 'uniform2f',
-            value: [canvas.width / 2, canvas.height / 2]
-          }
-        },
-        maps: {
-          u_Sampler: {
-            image: '../img/room.jpg'
-          }
-        }
+        })
       })
     </script>
   </body>

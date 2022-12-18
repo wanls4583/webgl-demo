@@ -14,13 +14,21 @@ export default class {
     constructor(option) {
         this.option = Object.assign(defaultOption(), option);
         this.option.source = new Float32Array(this.option.source.flat());
-        this.update();
+        this.option.auto = this.option.auto !== false;
+        if (this.option.auto) {
+            this.init();
+        }
     }
-    async update() {
+    init() {
         this.updateAttribute();
         this.updateUniform();
-        await this.updateMap();
-        this.draw();
+        this.updateMap();
+        if (this.option.auto) {
+            this.draw();
+        }
+    }
+    update() {
+       return this.init();
     }
     updateAttribute() {
         const { gl, attributes, source, byteSize } = this.option;
@@ -51,20 +59,11 @@ export default class {
             gl[type](uf, ...value);
         }
     }
-    async updateMap() {
+    updateMap() {
         const { gl, maps } = this.option;
         const entries = Object.entries(maps || {});
-        const imgs = entries.map((item) => {
-            return this.loadImg(item[1].image).then((image) => {
-                item[1].imageData = image;
-            });
-        })
-        if (!imgs.length) {
-            return;
-        }
-        await Promise.all(imgs);
         entries.forEach(([key, value], index) => {
-            const { imageData, minFilter, magFilter, wrapS, wrapT } = value;
+            const { image, minFilter, magFilter, wrapS, wrapT } = value;
             const texture = gl.createTexture();
             const u_Sampler = gl.getUniformLocation(gl.program, key);
             gl.uniform1i(u_Sampler, index);
@@ -77,7 +76,7 @@ export default class {
                 gl.RGB,
                 gl.RGB,
                 gl.UNSIGNED_BYTE,
-                imageData
+                image
             )
             gl.texParameteri(
                 gl.TEXTURE_2D,
@@ -110,18 +109,5 @@ export default class {
     draw() {
         const { gl, type, start, size } = this.option;
         gl.drawArrays(gl[type], start, size);
-    }
-    loadImg(image) {
-        return new Promise((resolve) => {
-            if (typeof image === 'string') {
-                let img = new Image();
-                img.src = image;
-                img.onload = () => {
-                    resolve(img);
-                }
-            } else {
-                resolve(image);
-            }
-        })
     }
 }

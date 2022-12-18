@@ -16,3 +16,17 @@ function loaderShader(gl, type, source) {
     gl.compileShader(shader);
     return shader;
 }
+
+export function loadImg(image) {
+    return new Promise((resolve) => {
+        if (typeof image === 'string') {
+            let img = new Image();
+            img.src = image;
+            img.onload = () => {
+                resolve(img);
+            }
+        } else {
+            resolve(image);
+        }
+    })
+}
