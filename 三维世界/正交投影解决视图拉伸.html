@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #canvas {
+        width: 100%;
+        height: 100%;
+        background-color: black;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      uniform mat4 u_ProjectionMatrix;
+      void main() {
+       gl_Position = u_ProjectionMatrix * a_Position;
+       //gl_Position = a_Position;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      void main() {
+        gl_FragColor = vec4(1, 1, 0, 1);
+      }
+    </script>
+    <script type="module">
+      import { Matrix4, Vector3 } from 'https://unpkg.com/three/build/three.module.js'
+      import { initShaders } from '../js/common.js'
+      import Poly from '../js/Poly.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      initShaders(gl, vSource, fSource)
+
+      //正交投影矩阵
+      const projectionMatrix = new Matrix4()
+      //定义相机世界高度尺寸的一半
+      const halfH = 2
+      //计算画布的宽高比
+      const ratio = canvas.width / canvas.height
+      //基于halfH和画布宽高比计算相机世界宽度尺寸的一半
+      const halfW = halfH * ratio
+      //定义相机世界的6个边界
+      const [left, right, top, bottom, near, far] = [-halfW, halfW, halfH, -halfH, 0, 4]
+      //获取正交投影矩阵
+      projectionMatrix.makeOrthographic(left, right, top, bottom, near, far)
+      console.log(projectionMatrix.elements);
+
+      let poly = new Poly({
+        gl: gl,
+        type: 'TRIANGLES',
+        source: [
+          [-0.3, -0.3, -4],
+          [0.3, -0.3, -4],
+          [0, 0.3, -4]
+        ],
+        attributes: {
+          a_Position: {
+            size: 3,
+            index: 0
+          }
+        },
+        uniforms: {
+          u_ProjectionMatrix: {
+            type: 'uniformMatrix4fv',
+            value: [false, projectionMatrix.elements]
+          }
+        }
+      })
+    </script>
+  </body>
+</html>
