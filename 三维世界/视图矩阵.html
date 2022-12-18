@@ -64,10 +64,14 @@
       camera.position.copy(eye)
       camera.lookAt(target)
       camera.updateWorldMatrix(true)
-      console.log(camera.projectionMatrix.elements)
-      console.log(camera.matrixWorldInverse.elements)
-      //投影视图矩阵
+
       const pvMatrix = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+
+      console.log(camera.projectionMatrix.elements)
+      console.log(camera.matrixWorld.elements)
+      console.log(camera.matrixWorldInverse.elements)
+      console.log(pvMatrix.elements)
+      //投影视图矩阵
 
       const triangle1 = crtTriangle(
         [1, 0, 0, 1],
