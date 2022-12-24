@@ -21,7 +21,7 @@
   <body>
     <canvas id="canvas"></canvas>
     <script id="vertexShader" type="x-shader/x-vertex">
-         attribute vec4 a_Position;
+      attribute vec4 a_Position;
       uniform mat4 u_ViewMatrix;
          void main() {
              gl_Position = u_ViewMatrix * a_Position;
@@ -84,8 +84,8 @@
       initShaders(gl, vSource, fSource)
 
       // const matrix = new Matrix4().lookAt(new Vector3(-0.2, -0.2, 1), new Vector3(0, 0, 0), new Vector3(0, 1, 0))
-      // const matrix = lookAt1(new Vector3(-0.2, -0.2, 1), new Vector3(0, 0, 0), new Vector3(0, 1, 0))
-      const matrix = lookAt2([-0.2, -0.2, 1], [0, 0, 0], [0, 1, 0])
+      // const matrix = lookAt1(new Vector3(0.3, 0.2, 0.5), new Vector3(0, 0, 0), new Vector3(0, 1, 0))
+      const matrix = lookAt2([0.3, 0.2, 0.5], [0, 0, 0], [0, 1, 0])
       const u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
       gl.uniformMatrix4fv(u_ViewMatrix, false, matrix.elements)
 
@@ -126,44 +126,51 @@
 
       //视图矩阵
       function lookAt1(e, t, u) {
-        //目标点到视点的向量
-        const d = new Vector3().subVectors(e, t)
-        d.normalize()
-        console.log(e);
-        console.log(t);
-        console.log(d);
-        //d和上方向的垂线
-        const a = new Vector3().crossVectors(u, d)
-        a.normalize()
-        //d和a的垂线
-        const b = new Vector3().crossVectors(d, a)
-        b.normalize()
-        //c 基于d取反
-        const c = new Vector3(-d.x, -d.y, -d.z)
-        const obj = {
-          elements: [
-            a.x, b.x, c.x, 0, 
-            a.y, b.y, c.y, 0, 
-            a.z, b.z, c.z, 0, 
-            0, 0, 0, 1
-          ]
-        }
-        return obj;
+        //基向量c，视线
+        const c = new Vector3().subVectors(e, t).normalize()
+        //基向量a，视线和上方向的垂线
+        const a = new Vector3().crossVectors(u, c).normalize()
+        //基向量b，修正上方向
+        const b = new Vector3().crossVectors(c, a).normalize()
+        //正交旋转矩阵
+        const mr = new Matrix4().set(
+          ...a, 0,
+          ...b, 0,
+          -c.x, -c.y, -c.z, 0,
+          0, 0, 0, 1
+        )
+        //位移矩阵
+        const mt = new Matrix4().set(
+          1, 0, 0, -e.x,
+          0, 1, 0, -e.y,
+          0, 0, 1, -e.z,
+          0, 0, 0, 1
+        )
+        return mr.multiply(mt)
       }
 
       // 视图矩阵
       function lookAt2(e, t, u) {
         let c = _subVectors(e, t)
+        _normalize(c);
         let a = _crossVectors(u, c)
+        _normalize(a);
         let b = _crossVectors(c, a)
-        let obj = {
-          elements: [
-            a[0], b[0], -c[0], 0, 
-            a[1], b[1], -c[1], 0, 
-            a[2], b[2], -c[2], 0, 
-            0, 0, 0, 1]
-        }
-        return obj
+        _normalize(b);
+        const mr = new Matrix4().set(
+          ...a, 0,
+          ...b, 0,
+          -c[0], -c[1], -c[2], 0,
+          0, 0, 0, 1
+        )
+        //位移矩阵
+        const mt = new Matrix4().set(
+          1, 0, 0, -e[0],
+          0, 1, 0, -e[1],
+          0, 0, 1, -e[2],
+          0, 0, 0, 1
+        )
+        return mr.multiply(mt)
 
         function _crossVectors(a, b) {
           let x = a[1] * b[2] - a[2] * b[1]
@@ -174,6 +181,14 @@
 
         function _subVectors(a, b) {
           return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+        }
+
+        function _normalize(a) {
+          var r = Math.sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2])
+          a[0] /= r;
+          a[1] /= r;
+          a[2] /= r;
+          return a;
         }
       }
     </script>
