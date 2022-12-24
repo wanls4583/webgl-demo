@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #canvas {
+        width: 100%;
+        height: 100%;
+        background-color: black;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      uniform mat4 u_PvMatrix;
+      void main() {
+       gl_Position = u_PvMatrix * a_Position;
+       //gl_Position = a_Position;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform vec4 u_Color;
+      void main() {
+        gl_FragColor = u_Color;
+      }
+    </script>
+    <script type="module">
+      import { Matrix4, Vector3, OrthographicCamera, PerspectiveCamera } from 'https://unpkg.com/three/build/three.module.js'
+      import { initShaders } from '../js/common.js'
+      import Poly from '../js/Poly.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      initShaders(gl, vSource, fSource)
+
+      const [fov, aspect, near, far] = [
+        45,
+        canvas.width / canvas.height,
+        1,
+        20
+      ]
+      const camera = new PerspectiveCamera(fov, aspect, near, far)
+
+      //投影视图矩阵
+      const pvMatrix = new Matrix4()
+        .multiplyMatrices(
+          camera.projectionMatrix,
+          camera.matrixWorldInverse
+        )
+
+      const triangle1 = crtTriangle(
+        [1, 0, 0, 1],
+        [-0.5, 0, -10]
+      )
+      const triangle2 = crtTriangle(
+        [1, 0, 0, 1],
+        [0.5, 0, -3]
+      )
+
+      const triangle3 = crtTriangle(
+        [1, 1, 0, 1],
+        [-0.5, 0, -2]
+      )
+
+      const triangle4 = crtTriangle(
+        [1, 1, 0, 1],
+        [0.5, 0, -2]
+      )
+
+      function crtTriangle(color, [x, y, z]) {
+        return new Poly({
+          gl: gl,
+          type: 'TRIANGLES',
+          source: [
+            x, 0.3 + y, z,
+            -0.3 + x, -0.3 + y, z,
+            0.3 + x, -0.3 + y, z
+          ],
+          attributes: {
+            a_Position: {
+              size: 3,
+              index: 0
+            }
+          },
+          uniforms: {
+            u_PvMatrix: {
+              type: 'uniformMatrix4fv',
+              value: [false, pvMatrix.elements]
+            },
+            u_Color: {
+              type: 'uniform4f',
+              value: color
+            }
+          }
+        })
+      }
+    </script>
+  </body>
+</html>
