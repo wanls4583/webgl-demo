@@ -30,3 +30,18 @@ export function loadImg(image) {
         }
     })
 }
+
+export function printMatrix(mt, title) {
+    let elements = mt.elements
+    let arr = []
+    title && console.log(title)
+    for(let i = 0; i < elements.length; i++) {
+      let num = elements[i].toFixed(4)
+      arr.push(num[0] == '-' ? num : ' ' + num)
+      if(arr.length == 4) {
+        console.log(arr.join('    '))
+        arr = []
+      }
+    }
+    console.log('---------------------------------------------------\n')
+}

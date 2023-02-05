@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      uniform mat4 u_ViewMatrix;
+         void main() {
+             gl_Position = u_ViewMatrix * a_Position;
+             gl_PointSize = 2.0;
+         }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      void main() {
+          float dis = distance(gl_PointCoord, vec2(0.5, 0.5));
+          if(dis <= 0.5) {
+              gl_FragColor = vec4(1, 1, 1, 1);
+          } else {
+              discard;
+          }
+      }
+    </script>
+    <script>
+      class Poly {
+        constructor(gl) {
+          this.gl = gl
+          this.vertexs = []
+
+          const a_Position = gl.getAttribLocation(gl.program, 'a_Position')
+          const vertexBuffer = gl.createBuffer()
+          gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+          gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0)
+          gl.enableVertexAttribArray(a_Position)
+        }
+        addVertex(vertex) {
+          this.vertexs.push(vertex)
+        }
+        updateBuffer() {
+          const vertexs = []
+          const { gl } = this
+          this.vertexs.forEach(item => {
+            vertexs.push(...item)
+          })
+          this.gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        }
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import { Track } from '../js/track.js'
+      import { Matrix4, Vector3, OrthographicCamera } from '../js/three.module.js'
+
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+      gl.clearColor(0, 0, 0, 1) //背景色
+      gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
+
+      gl.enable(gl.BLEND) //开启混合
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
+      initShaders(gl, vSource, fSource)
+
+      let eye = new Vector3(0.3, 0.2, 0.5)
+      let target = new Vector3(0, 0, 0)
+      let up = new Vector3(0, 1, 0)
+
+      let rotationMatrix = new Matrix4().lookAt(eye, target, up)
+      // console.log(rotationMatrix)
+      // rotationMatrix = lookAt1(eye, target, up)
+      // console.log(rotationMatrix)
+      rotationMatrix = lookAt2(eye, target, up)
+      // console.log(rotationMatrix)
+      let positionMatrix = new Matrix4().setPosition(eye)
+      positionMatrix = new Matrix4().set(
+        1, 0, 0, eye.x,
+        0, 1, 0, eye.y,
+        0, 0, 1, eye.z,
+        0, 0, 0, 1,
+      )
+      print('positionMatrix:', positionMatrix)
+      let matrixWorld = new Matrix4().multiplyMatrices(positionMatrix, rotationMatrix)
+      let viewMatrix = new Matrix4().multiplyMatrices(positionMatrix, rotationMatrix).invert()
+      print('matrixWorld:', positionMatrix.multiply(rotationMatrix))
+      print('matrixWorld:', matrixWorld)
+      print('matrixWorldInverse:', viewMatrix)
+
+      const u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
+      gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements)
+
+      const camera = new OrthographicCamera( canvas.width / - 2, canvas.width / 2, canvas.height / 2, canvas.height / - 2, 1, 1000 );
+      camera.position.copy(eye)
+      camera.lookAt(target)
+      camera.updateWorldMatrix(true)
+      print('matrixWorld:', camera.matrixWorld)
+      print('matrixWorldInverse:', camera.matrixWorldInverse)
+      print('matrixWorldInverse', invert(camera.matrixWorld))
+
+      // console.log(camera.matrixWorldInverse.multiply(camera.matrixWorld))
+
+      const poly = new Poly(gl)
+      const vertexs = [
+        //下面
+        [-0.1, 0.1, -0.1],
+        [0.1, 0.1, -0.1],
+        [0.1, -0.1, -0.1],
+        [-0.1, -0.1, -0.1],
+        //上面
+        [-0.1, 0.1, 0.1],
+        [0.1, 0.1, 0.1],
+        [0.1, -0.1, 0.1],
+        [-0.1, -0.1, 0.1]
+      ]
+      const posList = [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 0],
+        [0, 4],
+        [1, 5],
+        [2, 6],
+        [3, 7],
+        [4, 5],
+        [5, 6],
+        [6, 7],
+        [7, 4]
+      ]
+      posList.forEach(line => {
+        line.forEach(i => {
+          poly.addVertex(vertexs[i])
+        })
+      })
+      poly.updateBuffer()
+      gl.drawArrays(gl.LINES, 0, poly.vertexs.length)
+
+      //视图矩阵
+      function lookAt1(e, t, u) {
+        //基向量c，视线
+        const c = new Vector3().subVectors(e, t).normalize()
+        //基向量a，视线和上方向的垂线
+        const a = new Vector3().crossVectors(u, c).normalize()
+        //基向量b，修正上方向
+        const b = new Vector3().crossVectors(c, a).normalize()
+        //正交旋转矩阵
+        const mr = new Matrix4().set(
+          a.x, b.x, c.x, 0,
+          a.y, b.y, c.y, 0,
+          a.z, b.z, c.z, 0,
+          0, 0, 0, 1
+        )
+        return mr
+      }
+
+      // 视图矩阵
+      function lookAt2(e, t, u) {
+        let c = subVectors(e, t)
+        normalize(c);
+        let a = crossVectors(u, c)
+        normalize(a);
+        let b = crossVectors(c, a)
+        normalize(b);
+        const mr = new Matrix4().set(
+          a.x, b.x, c.x, 0,
+          a.y, b.y, c.y, 0,
+          a.z, b.z, c.z, 0,
+          0, 0, 0, 1
+        )
+        //位移矩阵
+        const mt = new Matrix4().set(
+          1, 0, 0, e.x,
+          0, 1, 0, e.y,
+          0, 0, 1, e.z,
+          0, 0, 0, 1
+        )
+        print('lookAt2', mt.multiply(mr))
+        return mr
+      }
+
+      function crossVectors(a, b) {
+        let x = a.y * b.z - a.z * b.y
+        let y = a.z * b.x - a.x * b.z
+        let z = a.x * b.y - a.y * b.x
+        return new Vector3(x, y, z)
+      }
+
+      function subVectors(a, b) {
+        return new Vector3(a.x - b.x, a.y - b.y, a.z - b.z)
+      }
+
+      function normalize(a) {
+        var r = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z)
+        a.x /= r;
+        a.y /= r;
+        a.z /= r;
+        return a;
+      }
+
+      function invert(mt) {
+        let result = mt
+        let invertAble = true
+        let elements = mt.elements
+        let factorial = Math.sqrt(elements.length)
+        let newMt = new Array(factorial).fill(0).map(()=>{
+          return new Array(factorial).fill(0)
+        })
+        mt = []
+        for(let i = 0; i < factorial; i++) {
+          let arr = []
+          arr.push(elements[i]) 
+          arr.push(elements[i + factorial]) 
+          arr.push(elements[i + factorial * 2]) 
+          arr.push(elements[i + factorial * 3]) 
+          mt.push(arr)
+          newMt[i][i] = 1
+        }
+        if(_step1()) {
+          _step2()
+          _step3()
+          result = new Matrix4()
+          result.set(...newMt.flat())
+        }
+        return result
+
+
+        //左下角归零
+        function _step1() {
+          for(let row = 0; row < factorial - 1; row++) {
+            if(!_moveRow(row)) {
+              invertAble = false
+              return false
+            }
+            let num = mt[row][row]
+            for(let downRow = row + 1; downRow < factorial; downRow++) {
+              if(mt[downRow][row] != 0) {
+                let k = -mt[downRow][row] / num
+                _multiplyRow(downRow, row, k)
+              }
+            }
+          }
+          return true
+        }
+
+        //对角线归一
+        function _step2() {
+          for(let row = 0; row < factorial; row++) {
+            if(mt[row][row] != 1) {
+              _multiplyNum(row, 1 / mt[row][row])
+            }
+          }
+        }
+
+        //右下角归零
+        function _step3() {
+          for(let row = factorial - 1; row > 0; row--) {
+            let num = mt[row][row]
+            for(let upRow = row - 1; upRow >= 0; upRow--) {
+              if(mt[upRow][row] != 0) {
+                let k = -mt[upRow][row] / num
+                _multiplyRow(upRow, row, k)
+              }
+            }
+          }
+        }
+
+        function _moveRow(row) {
+          if(mt[row][row] == 0) {
+            for(let i = row + 1; i < factorial; i++) {
+              if(mt[i][row] != 0) {
+                _changeRow(row, i)
+                return true
+              }
+            }
+            return false
+          }
+          return true
+        }
+
+        function _changeRow(row1, row2) {
+          for(let i = 0; i < factorial; i++) {
+            let t1 = mt[row1][i]
+            let t2 = newMt[row1][i]
+            mt[row1][i] = mt[row2][i]
+            mt[row2][i] = t1
+            newMt[row1][i] = newMt[row2][i]
+            newMt[row2][i] = t2
+          }
+        }
+
+        function _multiplyNum(row, num) {
+          for(let i = 0; i < factorial; i++) {
+            mt[row][i] *= num
+            newMt[row][i] *= num
+          }
+        }
+
+        function _multiplyRow(row1, row2, k) {
+          k = k || 1
+          for(let i = 0; i < factorial; i++) {
+            mt[row1][i] += k * mt[row2][i]
+            newMt[row1][i] += k * newMt[row2][i]
+          }
+        }
+      }
+
+      function print(title, mt) {
+        let elements = mt.elements
+        let arr = []
+        console.log(title)
+        for(let i = 0; i < elements.length; i++) {
+          let num = elements[i].toFixed(4)
+          arr.push(num[0] == '-' ? num : ' ' + num)
+          if(arr.length == 4) {
+            console.log(arr.join('    '))
+            arr = []
+          }
+        }
+        console.log('---------------------------------------------------\n')
+      }
+    </script>
+  </body>
+</html>
