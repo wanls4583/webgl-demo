@@ -149,6 +149,10 @@
         spherical.setFromVector3(camera.position.clone().sub(target))
         spherical.theta -= (x / canvas.clientWidth) * Math.PI * 2
         spherical.phi -= (y / canvas.clientHeight) * Math.PI * 2
+        spherical.phi = Math.min(
+          Math.PI * 0.9999999999,
+          Math.max(0.000000001, spherical.phi)
+        )
         update()
       }
 
