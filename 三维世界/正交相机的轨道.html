@@ -39,7 +39,13 @@
       }
     </script>
     <script type="module">
-      import { Matrix4, Vector2, Vector3, OrthographicCamera } from 'https://unpkg.com/three/build/three.module.js'
+      import {
+        Matrix4,
+        Vector2,
+        Vector3,
+        OrthographicCamera,
+        Spherical
+      } from 'https://unpkg.com/three/build/three.module.js'
       import { initShaders, printMatrix } from '../js/common.js'
       import Poly from '../js/Poly.js'
       const canvas = document.getElementById('canvas')
@@ -76,6 +82,7 @@
       let dragStart = new Vector2()
       let dragEnd = new Vector2()
       let panOffset = new Vector3()
+      let spherical = new Spherical()
 
       canvas.addEventListener('contextmenu', e => {
         e.preventDefault()
@@ -92,6 +99,8 @@
           case 'pan':
             pan(dragEnd.clone().sub(dragStart))
             break
+          case 'rotate':
+            rotate(dragEnd.clone().sub(dragStart))
         }
         dragStart.copy(dragEnd)
       })
@@ -100,14 +109,46 @@
         state = -1
       })
 
+      canvas.addEventListener('wheel', ({ deltaY }) => {
+        if (deltaY < 0) {
+          scale(1 / 0.95)
+        } else {
+          scale(0.95)
+        }
+      })
+
       function pan({ x, y }) {
         let cameraW = camera.right - camera.left
         let cameraH = camera.top - camera.bottom
         let deltaX = (-cameraW / canvas.clientWidth) * x
-        let deltaY = (cameraW / canvas.clientHeight) * y
+        let deltaY = (cameraH / canvas.clientHeight) * y
         let vx = new Vector3().setFromMatrixColumn(camera.matrix, 0).multiplyScalar(deltaX)
         let vy = new Vector3().setFromMatrixColumn(camera.matrix, 1).multiplyScalar(deltaY)
         panOffset.copy(vx.add(vy))
+        update()
+      }
+
+      function scale(zoomScale) {
+        camera.zoom *= zoomScale
+        camera.updateProjectionMatrix()
+        // updateProjectionMatrix 内部原理
+        // const dx = ( this.right - this.left ) / ( 2 * this.zoom );
+        // const dy = ( this.top - this.bottom ) / ( 2 * this.zoom );
+        // const cx = ( this.right + this.left ) / 2;
+        // const cy = ( this.top + this.bottom ) / 2;
+
+        // let left = cx - dx;
+        // let right = cx + dx;
+        // let top = cy + dy;
+        // let bottom = cy - dy;
+        // ……
+        update()
+      }
+
+      function rotate({ x, y }) {
+        spherical.setFromVector3(camera.position.clone().sub(target))
+        spherical.theta -= (x / canvas.clientWidth) * Math.PI * 2
+        spherical.phi -= (y / canvas.clientHeight) * Math.PI * 2
         update()
       }
 
@@ -153,11 +194,20 @@
       }
 
       function update() {
+        //平移
         target.add(panOffset)
         camera.position.add(panOffset)
+
+        //旋转
+        let sphericalOffset = new Vector3().setFromSpherical(spherical)
+        camera.position.copy(target.clone().add(sphericalOffset))
+
         camera.lookAt(target)
         camera.updateMatrixWorld(true)
+
         pvMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+
+        panOffset.set(0, 0)
 
         triangle1.init()
         triangle2.init()
