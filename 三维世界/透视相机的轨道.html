@@ -43,7 +43,7 @@
         Matrix4,
         Vector2,
         Vector3,
-        OrthographicCamera,
+        PerspectiveCamera,
         Spherical,
         Quaternion
       } from 'https://unpkg.com/three/build/three.module.js'
@@ -58,32 +58,27 @@
       const gl = canvas.getContext('webgl')
       initShaders(gl, vSource, fSource)
 
-      const halfH = 2
-      const ratio = canvas.width / canvas.height
-      const halfW = halfH * ratio
-      const [left, right, top, bottom, near, far] = [-halfW, halfW, halfH, -halfH, 0, 4]
-
-      //正交相机
-      const camera = new OrthographicCamera(left, right, top, bottom, near, far)
-      const position = new Vector3(1, 1, 3)
-      const target = new Vector3(0.5, 0.5, 0)
-      camera.position.copy(position)
+      const [fov, aspect, near, far] = [45, canvas.width / canvas.height, 1, 20]
+      const camera = new PerspectiveCamera(fov, aspect, near, far)
+      const eye = new Vector3(0, 0.5, 1)
+      const target = new Vector3(0, 0, -2.5)
+      const up = new Vector3(0, 1, 0)
+      camera.position.copy(eye)
       camera.lookAt(target)
       camera.updateWorldMatrix(true)
 
-      let projectionMatrix = camera.projectionMatrix
-
-      const pvMatrix = new Matrix4().multiplyMatrices(projectionMatrix, camera.matrixWorldInverse)
+      //投影视图矩阵
+      const pvMatrix = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
 
       const evnetMap = new Map([
         [0, 'rotate'],
         [2, 'pan']
       ])
-      const rotateType = 1
+      const rotateType = 2
       const PI2 = Math.PI * 2
       const rotateDir = 'xy'
       const screenSpacePanning = true
-
+      
       let state = -1
       let dragStart = new Vector2()
       let dragEnd = new Vector2()
@@ -107,7 +102,7 @@
             pan(dragEnd.clone().sub(dragStart))
             break
           case 'rotate':
-            if(rotateType == 1) {
+            if (rotateType == 1) {
               rotate(dragEnd.clone().sub(dragStart))
             } else {
               rotate2(dragEnd.clone().sub(dragStart))
@@ -129,8 +124,8 @@
       })
 
       function pan({ x, y }) {
-        let cameraW = camera.right - camera.left
-        let cameraH = camera.top - camera.bottom
+        let cameraH = camera.position.clone().sub(target).length() * Math.tan(camera.fov / 2 / 180 * Math.PI) * 2
+        let cameraW = cameraH * camera.aspect
         let deltaX = (-cameraW / canvas.clientWidth) * x
         let deltaY = (cameraH / canvas.clientHeight) * y
         let vx = new Vector3().setFromMatrixColumn(camera.matrix, 0).multiplyScalar(deltaX)
@@ -138,7 +133,7 @@
         if(screenSpacePanning) {
           vy.setFromMatrixColumn(camera.matrix, 1)
         } else {
-          vy.setFromMatrixColumn(camera.matrix, 1)
+          vy.setFromMatrixColumn(camera.matrix, 2)
         }
         vy.multiplyScalar(deltaY)
         panOffset.copy(vx.add(vy))
@@ -146,19 +141,7 @@
       }
 
       function scale(zoomScale) {
-        camera.zoom *= zoomScale
-        camera.updateProjectionMatrix()
-        // updateProjectionMatrix 内部原理
-        // const dx = ( this.right - this.left ) / ( 2 * this.zoom );
-        // const dy = ( this.top - this.bottom ) / ( 2 * this.zoom );
-        // const cx = ( this.right + this.left ) / 2;
-        // const cy = ( this.top + this.bottom ) / 2;
-
-        // let left = cx - dx;
-        // let right = cx + dx;
-        // let top = cy + dy;
-        // let bottom = cy - dy;
-        // ……
+        camera.position.lerp(target, zoomScale - 1)
         update()
       }
 
@@ -181,8 +164,8 @@
       // 轨迹球旋转
       function rotate2({ x, y }) {
         let angle = new Vector2(x / canvas.clientHeight, -y / canvas.clientHeight).length() * PI2
-        let cameraW = camera.right - camera.left
-        let cameraH = camera.top - camera.bottom
+        let cameraH = camera.position.clone().sub(target).length() * Math.tan(camera.fov / 2 / 180 * Math.PI) * 2
+        let cameraW = cameraH * camera.aspect
         let deltaX = (cameraW / canvas.clientWidth) * x
         let deltaY = (cameraH / canvas.clientHeight) * -y
         let vx = new Vector3().setFromMatrixColumn(camera.matrix, 0).multiplyScalar(deltaX)
@@ -193,28 +176,20 @@
         update()
       }
 
-      const triangle1 = crtTriangle(
-        [1, 0, 0, 1],
-        [
-          [0, 0.3, -0.2],
-          [-0.3, -0.3, -0.2],
-          [0.3, -0.3, -0.2]
-        ]
-      )
-      const triangle2 = crtTriangle(
-        [1, 1, 0, 1],
-        [
-          [0, 0.3, 0.2],
-          [-0.3, -0.3, 0.2],
-          [0.3, -0.3, 0.2]
-        ]
-      )
+      const triangle1 = crtTriangle([1, 0, 0, 1], [-0.5, 0, -10])
+      const triangle2 = crtTriangle([1, 0, 0, 1], [0.5, 0, -3])
+      const triangle3 = crtTriangle([1, 1, 0, 1], [-0.5, 0, -2])
+      const triangle4 = crtTriangle([1, 1, 0, 1], [0.5, 0, -2])
 
-      function crtTriangle(color, source) {
+      function crtTriangle(color, [x, y, z]) {
         return new Poly({
           gl: gl,
           type: 'TRIANGLES',
-          source: source,
+          source: [
+            x, 0.3 + y, z,
+            -0.3 + x, -0.3 + y, z,
+            0.3 + x, -0.3 + y, z
+          ],
           attributes: {
             a_Position: {
               size: 3,
@@ -239,7 +214,7 @@
         target.add(panOffset)
         camera.position.add(panOffset)
 
-        if(rotateType == 1) {
+        if (rotateType == 1) {
           //球坐标旋转
           let rotateOffset = new Vector3().setFromSpherical(spherical)
           camera.position.copy(target.clone().add(rotateOffset))
@@ -249,7 +224,7 @@
           camera.up.applyQuaternion(quaternion)
           camera.position.copy(target.clone().add(rotateOffset))
         }
-        
+
         camera.lookAt(target)
         camera.updateMatrixWorld(true)
         pvMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
@@ -260,6 +235,8 @@
 
         triangle1.init()
         triangle2.init()
+        triangle3.init()
+        triangle4.init()
       }
     </script>
   </body>
