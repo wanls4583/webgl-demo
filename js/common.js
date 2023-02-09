@@ -1,13 +1,15 @@
-export function initShaders(gl, vSource, fSource) {
+export function initShaders(gl, vSource, fSource, ifUse = true) {
     const program = gl.createProgram();
     const vertexShader = loaderShader(gl, gl.VERTEX_SHADER, vSource);
     const fragmentShader = loaderShader(gl, gl.FRAGMENT_SHADER, fSource);
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
-    gl.useProgram(program);
-    gl.program = program;
-    return true;
+    if(ifUse) {
+        gl.useProgram(program);
+        gl.program = program;
+    }
+    return program;
 }
 
 function loaderShader(gl, type, source) {
