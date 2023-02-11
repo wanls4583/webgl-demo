@@ -20,28 +20,14 @@
   </head>
   <body>
     <canvas id="canvas"></canvas>
-    <script id="solidVertexShader" type="x-shader/x-vertex">
-      attribute vec4 a_Position;
-      attribute vec4 a_Color;
-      varying vec4 u_Color;
-      void main() {
-        gl_Position = a_Position;
-      	u_Color = a_Color;
-      }
-    </script>
-    <script id="solidFragmentShader" type="x-shader/x-fragment">
-      precision mediump float;
-      varying vec4 u_Color;
-      void main() {
-      	gl_FragColor = u_Color;
-      }
-    </script>
     <script id="textureVertexShader" type="x-shader/x-vertex">
       attribute vec4 a_Position;
       attribute vec2 a_Pin;
+      uniform mat4 u_ModelMatrix;
+      uniform mat4 u_PMatrix;
       varying vec2 u_Pin;
       void main() {
-        gl_Position = a_Position;
+        gl_Position = u_PMatrix * u_ModelMatrix * a_Position;
       	u_Pin = a_Pin;
       }
     </script>
@@ -55,9 +41,8 @@
     </script>
     <script type="module">
       import { initShaders } from '../js/common.js'
+      import { Matrix4, Vector3 } from '../js/three.module.js'
       const canvas = document.getElementById('canvas')
-      const vSource1 = document.querySelector('#solidVertexShader').innerText
-      const fSource1 = document.querySelector('#solidFragmentShader').innerText
       const vSource2 = document.querySelector('#textureVertexShader').innerText
       const fSource2 = document.querySelector('#textureFragmentShader').innerText
       canvas.width = window.innerWidth
@@ -69,38 +54,35 @@
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 
-      const solidProgram = initShaders(gl, vSource1, fSource1, false)
       const textureProgram = initShaders(gl, vSource2, fSource2, false)
 
-      const img = new Image()
-      img.src = '../img/erha.jpg'
-      img.onload = () => {
-        gl.clearColor(0, 0, 0, 1) //背景色
-        gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
-        drawTexture(img)
-        drawSolid()
+      let angle = 0
+      let basePos = new Vector3(-0.5, 0.5, 0)
+      let basePosReverse = new Vector3(0.5, -0.5, 0)
+
+      let mat1 = new Matrix4().setPosition(basePos)
+      let mat2 = new Matrix4().setPosition(basePosReverse)
+
+      //正交投影矩阵
+      const projectionMatrix = new Matrix4()
+      //定义相机世界高度尺寸的一半
+      const halfH = 2
+      //计算画布的宽高比
+      const ratio = canvas.width / canvas.height
+      //基于halfH和画布宽高比计算相机世界宽度尺寸的一半
+      const halfW = halfH * ratio
+      //定义相机世界的6个边界
+      const [left, right, top, bottom, near, far] = [-halfW, halfW, halfH, -halfH, 0, 100]
+      //获取正交投影矩阵
+      projectionMatrix.makeOrthographic(left, right, top, bottom, near, far)
+
+      const image = new Image()
+      image.src = '../img/erha.jpg'
+      image.onload = () => {
+        drawTexture()
       }
 
-      function drawSolid() {
-        const vertexs = [
-          [-0.1, -0.1],
-          [0.1, -0.1],
-          [0, 0.1]
-        ]
-        const colors = [
-          [1, 0, 0, 1],
-          [0, 1, 0, 1],
-          [0, 0, 1, 1]
-        ]
-        gl.program = solidProgram
-        gl.useProgram(solidProgram)
-
-        enableVertexAttribArray('a_Position', vertexs, 2)
-        enableVertexAttribArray('a_Color', colors, 4)
-        gl.drawArrays(gl.TRIANGLES, 0, vertexs.length)
-      }
-
-      function drawTexture(image) {
+      function drawTexture() {
         const vertexs = [
           [-0.5, 0.5],
           [-0.5, -0.5],
@@ -128,7 +110,17 @@
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 
+        angle += 0.02
+        const s = (Math.sin(angle) + 1) / 2
+        let mat = mat1.clone().multiply(new Matrix4().makeRotationZ(angle)).scale(new Vector3(s, s, 1)).multiply(mat2)
+
+        setUniform('u_ModelMatrix', 'uniformMatrix4fv', [false, mat.elements])
+        setUniform('u_PMatrix', 'uniformMatrix4fv', [false, projectionMatrix.elements])
+
+        gl.clearColor(0, 0, 0, 1) //背景色
+        gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+        requestAnimationFrame(drawTexture)
       }
 
       function enableVertexAttribArray(prop, vertexs, size) {
@@ -139,6 +131,11 @@
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
         gl.vertexAttribPointer(attr, size, gl.FLOAT, false, 0, 0)
         gl.enableVertexAttribArray(attr)
+      }
+
+      function setUniform(prop, type, arr) {
+        let u = gl.getUniformLocation(gl.program, prop)
+        gl[type](u, ...arr)
       }
     </script>
   </body>
