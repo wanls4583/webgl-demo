@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="solidVertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      uniform mat4 u_ModelMatrix;
+      uniform mat4 u_PMatrix;
+      void main() {
+        gl_Position = u_PMatrix * u_ModelMatrix * a_Position;
+        gl_PointSize = 8.0;
+      }
+    </script>
+    <script id="solidFragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform vec4 u_Color;
+      void main() {
+      	gl_FragColor = u_Color;
+      }
+    </script>
+    <script id="textureVertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      attribute vec2 a_Pin;
+      uniform mat4 u_ModelMatrix;
+      uniform mat4 u_PMatrix;
+      varying vec2 u_Pin;
+      void main() {
+        gl_Position = u_PMatrix * u_ModelMatrix * a_Position;
+      	u_Pin = a_Pin;
+      }
+    </script>
+    <script id="textureFragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      uniform sampler2D u_Sampler;
+      varying vec2 u_Pin;
+      void main() {
+      	gl_FragColor = texture2D(u_Sampler, u_Pin);
+      }
+    </script>
+    <script type="module">
+      import { initShaders } from '../js/common.js'
+      import { Matrix4, Vector2, Vector3 } from '../js/three.module.js'
+      const canvas = document.getElementById('canvas')
+      const vSource1 = document.querySelector('#solidVertexShader').innerText
+      const fSource1 = document.querySelector('#solidFragmentShader').innerText
+      const vSource2 = document.querySelector('#textureVertexShader').innerText
+      const fSource2 = document.querySelector('#textureFragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+
+      gl.enable(gl.BLEND) //开启混合
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+
+      const solidProgram = initShaders(gl, vSource1, fSource1, false)
+      const textureProgram = initShaders(gl, vSource2, fSource2, false)
+
+      const modelMatrix = new Matrix4()
+      const projectionMatrix = new Matrix4()
+      const halfH = 1
+      const halfW = (halfH * canvas.width) / canvas.height
+      const [left, right, top, bottom, near, far] = [-halfW, halfW, halfH, -halfH, 0, 100]
+      projectionMatrix.makeOrthographic(left, right, top, bottom, near, far)
+
+      const cursorMap = new Map([
+        ['drag', 'move'],
+        ['rotate', 'alias'],
+        ['scale', 'pointer'],
+        ['none', 'default']
+      ])
+      const dragStart = new Vector2()
+      const dragEnd = new Vector2()
+      const offestXy = new Vector3()
+      const scaleRatio = new Vector3(1, 1, 1)
+
+      let angle = 0
+      let cursorState = 'none'
+      let state = ''
+
+      const image = new Image()
+      image.src = '../img/erha.jpg'
+      image.onload = () => {
+        render()
+      }
+
+      canvas.addEventListener('pointermove', ({ clientX, clientY }) => {
+        cursorState = 'none'
+        dragEnd.copy(new Vector2(clientX, clientY))
+        if (inNode(dragEnd)) {
+          cursorState = 'scale'
+        } else if (inPic(dragEnd)) {
+          cursorState = 'drag'
+        }
+        canvas.style.cursor = cursorMap.get(cursorState)
+        switch (state) {
+          case 'drag':
+            pan()
+            break
+          case 'scale':
+            scale()
+            break
+        }
+        dragStart.copy(dragEnd)
+      })
+
+      canvas.addEventListener('pointerdown', ({ clientX, clientY }) => {
+        dragStart.copy(new Vector2(clientX, clientY))
+        state = cursorState
+      })
+
+      canvas.addEventListener('pointerup', ({ clientX, clientY }) => {
+        state = 'none'
+        console.log(state)
+      })
+
+      function pan() {
+        let pos = toWordPos(dragEnd).sub(toWordPos(dragStart))
+        pos = new Vector3(pos.x, pos.y, 0).applyMatrix4(projectionMatrix.clone().invert())
+        offestXy.x += pos.x
+        offestXy.y += pos.y
+        update()
+      }
+
+      function scale() {
+        let ratio = (dragEnd.x - dragStart.x) / canvas.clientHeight
+        scaleRatio.x += ratio
+        scaleRatio.y += ratio
+        update()
+      }
+
+      function toWordPos(pos) {
+        let x = (pos.x / canvas.clientWidth) * 2 - 1
+        let y = 1 - (pos.y / canvas.clientHeight) * 2
+        return new Vector2(x, y)
+      }
+
+      function toOriginPos(pos) {
+        // 当前为裁剪空间坐标，需要转化为初始坐标
+        pos = new Vector3(pos.x, pos.y, 0).applyMatrix4(projectionMatrix.clone().multiply(modelMatrix).invert())
+        pos = new Vector2(pos.x, pos.y)
+        return pos
+      }
+
+      function inPic(pos) {
+        pos = toWordPos(pos)
+        pos = toOriginPos(pos)
+        return (
+          _inTriangle(pos, [new Vector2(-0.3, 0.3), new Vector2(-0.3, -0.3), new Vector2(0.3, 0.3)]) ||
+          _inTriangle(pos, [new Vector2(0.3, 0.3), new Vector2(-0.3, -0.3), new Vector2(0.3, -0.3)])
+        )
+
+        function _inTriangle(pos, posList) {
+          let a = posList[1].clone().sub(posList[0])
+          let b = posList[2].clone().sub(posList[1])
+          let c = posList[0].clone().sub(posList[2])
+          let ap = pos.clone().sub(posList[0])
+          let bp = pos.clone().sub(posList[1])
+          let cp = pos.clone().sub(posList[2])
+
+          if (a.cross(ap) > 0) {
+            return b.cross(bp) > 0 && c.cross(cp) > 0
+          } else {
+            return b.cross(bp) < 0 && c.cross(cp) < 0
+          }
+        }
+      }
+
+      function inNode(pos) {
+        pos = toWordPos(pos)
+        pos = toOriginPos(pos)
+        const vertexs = [
+          [-0.3, 0.3],
+          [-0.3, -0.3],
+          [0.3, -0.3],
+          [0.3, 0.3]
+        ]
+
+        let hw = (2 / canvas.clientHeight) * 4
+
+        for (let i = 0; i < vertexs.length; i++) {
+          let item = vertexs[i]
+          if (pos.x > item[0] - hw && pos.x < item[0] + hw && pos.y > item[1] - hw && pos.y < item[1] + hw) {
+            return new Vector2(item[0], item[1])
+          }
+        }
+      }
+
+      function drawBorder() {
+        const vertexs = [
+          [-0.3, 0.3],
+          [-0.3, -0.3],
+          [0.3, -0.3],
+          [0.3, 0.3]
+        ]
+        gl.useProgram(solidProgram)
+        gl.program = solidProgram
+
+        enableVertexAttribArray('a_Position', vertexs, 2)
+        setUniform('u_Color', 'uniform4f', [1, 1, 1, 1])
+
+        setUniform('u_ModelMatrix', 'uniformMatrix4fv', [false, modelMatrix.elements])
+        setUniform('u_PMatrix', 'uniformMatrix4fv', [false, projectionMatrix.elements])
+
+        gl.drawArrays(gl.LINE_LOOP, 0, 4)
+        gl.drawArrays(gl.POINTS, 0, 4)
+      }
+
+      function drawTexture() {
+        const vertexs = [
+          [-0.3, 0.3],
+          [-0.3, -0.3],
+          [0.3, 0.3],
+          [0.3, -0.3]
+        ]
+        const pins = [
+          [0, 1], //左上
+          [0, 0], //左下
+          [1, 1], //右上
+          [1, 0] //右下
+        ]
+        gl.useProgram(textureProgram)
+        gl.program = textureProgram
+
+        enableVertexAttribArray('a_Position', vertexs, 2)
+        enableVertexAttribArray('a_Pin', pins, 2)
+
+        setUniform('u_ModelMatrix', 'uniformMatrix4fv', [false, modelMatrix.elements])
+        setUniform('u_PMatrix', 'uniformMatrix4fv', [false, projectionMatrix.elements])
+
+        const u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler')
+        const texture = gl.createTexture()
+
+        gl.uniform1i(u_Sampler, 0)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+      }
+
+      function update() {
+        let mat = new Matrix4().setPosition(offestXy).scale(scaleRatio)
+        modelMatrix.copy(mat)
+      }
+
+      function render() {
+        gl.clearColor(0, 0, 0, 1) //背景色
+        gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
+
+        drawTexture()
+        drawBorder()
+        requestAnimationFrame(render)
+      }
+
+      function enableVertexAttribArray(prop, vertexs, size) {
+        const attr = gl.getAttribLocation(gl.program, prop)
+        const vertexBuffer = gl.createBuffer()
+        vertexs = vertexs.flat()
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        gl.vertexAttribPointer(attr, size, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(attr)
+      }
+
+      function setUniform(prop, type, arr) {
+        let u = gl.getUniformLocation(gl.program, prop)
+        gl[type](u, ...arr)
+      }
+    </script>
+  </body>
+</html>
