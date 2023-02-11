@@ -90,12 +90,12 @@
       ])
       const dragStart = new Vector2()
       const dragEnd = new Vector2()
-      const offestXy = new Vector3()
-      const scaleRatio = new Vector3(1, 1, 1)
+      const offestXy = new Vector2()
+      const scaleRatio = new Vector3(1, 1)
 
       let angle = 0
       let cursorState = 'none'
-      let state = ''
+      let state = 'none'
 
       const image = new Image()
       image.src = '../img/erha.jpg'
@@ -106,7 +106,9 @@
       canvas.addEventListener('pointermove', ({ clientX, clientY }) => {
         cursorState = 'none'
         dragEnd.copy(new Vector2(clientX, clientY))
-        if (inNode(dragEnd)) {
+        if(state != 'none') {
+          cursorState = state
+        } else if (inNode(dragEnd)) {
           cursorState = 'scale'
         } else if (inPic(dragEnd)) {
           cursorState = 'drag'
@@ -130,28 +132,34 @@
 
       canvas.addEventListener('pointerup', ({ clientX, clientY }) => {
         state = 'none'
-        console.log(state)
       })
 
       function pan() {
-        let pos = toWordPos(dragEnd).sub(toWordPos(dragStart))
-        pos = new Vector3(pos.x, pos.y, 0).applyMatrix4(projectionMatrix.clone().invert())
+        let pos = toCropPos(dragEnd).sub(toCropPos(dragStart))
+        pos = toWordPos(pos)
         offestXy.x += pos.x
         offestXy.y += pos.y
         update()
       }
 
       function scale() {
-        let ratio = (dragEnd.x - dragStart.x) / canvas.clientHeight
-        scaleRatio.x += ratio
-        scaleRatio.y += ratio
+        let pos = toCropPos(dragEnd)
+        pos = toWordPos(pos).sub(offestXy)
+        scaleRatio.x = pos.length() / Math.sqrt(0.3 * 0.3 * 2)
+        scaleRatio.y = scaleRatio.x
         update()
       }
 
-      function toWordPos(pos) {
+      function toCropPos(pos) {
         let x = (pos.x / canvas.clientWidth) * 2 - 1
         let y = 1 - (pos.y / canvas.clientHeight) * 2
         return new Vector2(x, y)
+      }
+
+      function toWordPos(pos) {
+        pos = new Vector3(pos.x, pos.y, 0).applyMatrix4(projectionMatrix.clone().invert())
+        pos = new Vector2(pos.x, pos.y)
+        return pos
       }
 
       function toOriginPos(pos) {
@@ -162,7 +170,7 @@
       }
 
       function inPic(pos) {
-        pos = toWordPos(pos)
+        pos = toCropPos(pos)
         pos = toOriginPos(pos)
         return (
           _inTriangle(pos, [new Vector2(-0.3, 0.3), new Vector2(-0.3, -0.3), new Vector2(0.3, 0.3)]) ||
@@ -186,7 +194,7 @@
       }
 
       function inNode(pos) {
-        pos = toWordPos(pos)
+        pos = toCropPos(pos)
         pos = toOriginPos(pos)
         const vertexs = [
           [-0.3, 0.3],
@@ -260,7 +268,9 @@
       }
 
       function update() {
-        let mat = new Matrix4().setPosition(offestXy).scale(scaleRatio)
+        let mat = new Matrix4()
+          .setPosition(new Vector3(offestXy.x, offestXy.y, 0))
+          .scale(new Vector3(scaleRatio.x, scaleRatio.y, 1))
         modelMatrix.copy(mat)
       }
 
