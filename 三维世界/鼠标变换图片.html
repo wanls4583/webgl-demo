@@ -91,7 +91,7 @@
       const dragStart = new Vector2()
       const dragEnd = new Vector2()
       const offestXy = new Vector2()
-      const scaleRatio = new Vector3(1, 1)
+      const scaleRatio = new Vector2(1, 1)
 
       let angle = 0
       let cursorState = 'none'
@@ -106,12 +106,14 @@
       canvas.addEventListener('pointermove', ({ clientX, clientY }) => {
         cursorState = 'none'
         dragEnd.copy(new Vector2(clientX, clientY))
-        if(state != 'none') {
+        if (state != 'none') {
           cursorState = state
         } else if (inNode(dragEnd)) {
           cursorState = 'scale'
         } else if (inPic(dragEnd)) {
           cursorState = 'drag'
+        } else if (nearNode(dragEnd)) {
+          cursorState = 'rotate'
         }
         canvas.style.cursor = cursorMap.get(cursorState)
         switch (state) {
@@ -120,6 +122,9 @@
             break
           case 'scale':
             scale()
+            break
+          case 'rotate':
+            rotate()
             break
         }
         dragStart.copy(dragEnd)
@@ -147,6 +152,15 @@
         pos = toWordPos(pos).sub(offestXy)
         scaleRatio.x = pos.length() / Math.sqrt(0.3 * 0.3 * 2)
         scaleRatio.y = scaleRatio.x
+        update()
+      }
+
+      function rotate() {
+        let ensPos = toCropPos(dragEnd)
+        let startPos = toCropPos(dragStart)
+        let endAngle = Math.atan2(ensPos.y, ensPos.x)
+        let startAngle = Math.atan2(startPos.y, startPos.x)
+        angle += endAngle - startAngle
         update()
       }
 
@@ -196,19 +210,29 @@
       function inNode(pos) {
         pos = toCropPos(pos)
         pos = toOriginPos(pos)
-        const vertexs = [
-          [-0.3, 0.3],
-          [-0.3, -0.3],
-          [0.3, -0.3],
-          [0.3, 0.3]
-        ]
+        const vertexs = [new Vector2(-0.3, 0.3), new Vector2(-0.3, -0.3), new Vector2(0.3, -0.3), new Vector2(0.3, 0.3)]
 
-        let hw = (2 / canvas.clientHeight) * 4
+        let hw = (2 / canvas.clientHeight) * 10
 
         for (let i = 0; i < vertexs.length; i++) {
           let item = vertexs[i]
-          if (pos.x > item[0] - hw && pos.x < item[0] + hw && pos.y > item[1] - hw && pos.y < item[1] + hw) {
-            return new Vector2(item[0], item[1])
+          if (pos.clone().sub(item).length() < hw) {
+            return item
+          }
+        }
+      }
+
+      function nearNode(pos) {
+        pos = toCropPos(pos)
+        pos = toOriginPos(pos)
+        const vertexs = [new Vector2(-0.3, 0.3), new Vector2(-0.3, -0.3), new Vector2(0.3, -0.3), new Vector2(0.3, 0.3)]
+
+        let hw = (2 / canvas.clientHeight) * 20
+
+        for (let i = 0; i < vertexs.length; i++) {
+          let item = vertexs[i]
+          if (pos.clone().sub(item).length() < hw) {
+            return item
           }
         }
       }
@@ -268,9 +292,10 @@
       }
 
       function update() {
-        let mat = new Matrix4()
-          .setPosition(new Vector3(offestXy.x, offestXy.y, 0))
-          .scale(new Vector3(scaleRatio.x, scaleRatio.y, 1))
+        let panMatrix = new Matrix4().makeTranslation(offestXy.x, offestXy.y, 0)
+        let scaleMatrix = new Matrix4().makeScale(scaleRatio.x, scaleRatio.y, 1)
+        let rotateMatrix = new Matrix4().makeRotationZ(angle)
+        let mat = new Matrix4().multiply(panMatrix).multiply(scaleMatrix).multiply(rotateMatrix)
         modelMatrix.copy(mat)
       }
 
