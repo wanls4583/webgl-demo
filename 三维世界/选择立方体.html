@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      #canvas {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      attribute vec4 a_Position;
+      attribute vec4 a_Color;
+      uniform mat4 u_PvMatrix;
+      uniform mat4 u_ModelMatrix;
+      varying vec4 u_Color;
+      void main() {
+        gl_Position = u_PvMatrix * u_ModelMatrix * a_Position;
+      	u_Color = a_Color;
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision mediump float;
+      varying vec4 u_Color;
+      void main() {
+      	gl_FragColor = u_Color;
+      }
+    </script>
+    <script type="module">
+      import { Matrix4, Vector2, Vector3, OrthographicCamera, PerspectiveCamera } from '../js/three.module.js'
+      import { initShaders } from '../js/common.js'
+      const canvas = document.getElementById('canvas')
+      const vSource = document.querySelector('#vertexShader').innerText
+      const fSource = document.querySelector('#fragmentShader').innerText
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const gl = canvas.getContext('webgl')
+
+      gl.enable(gl.BLEND) //开启混合
+      gl.enable(gl.DEPTH_TEST)
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
+      initShaders(gl, vSource, fSource)
+
+      const [fov, aspect, near, far] = [45, canvas.width / canvas.height, 1, 20]
+      const camera = new PerspectiveCamera(fov, aspect, near, far)
+      const eye = new Vector3(2, 2, 5)
+      const target = new Vector3(0, 0, 0)
+      const up = new Vector3(0, 1, 0)
+      camera.position.copy(eye)
+      camera.lookAt(target)
+      camera.updateWorldMatrix(true)
+
+      const modelMatrix = new Matrix4()
+      //投影视图矩阵
+      const pvMatrix = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+      const u_PvMatrix = gl.getUniformLocation(gl.program, 'u_PvMatrix')
+      gl.uniformMatrix4fv(u_PvMatrix, false, pvMatrix.elements)
+
+      let selected = false
+      let angle = 0
+
+      //    v6----- v5
+      //   /|      /|
+      //  v1------v0|
+      //  | |     | |
+      //  | |v7---|-|v4
+      //  |/      |/
+      //  v2------v3
+      const vertexs = [
+        [1, 1, 1], // v0 White
+        [-1, 1, 1], // v1 Magenta
+        [-1, -1, 1], // v2 Red
+        [1, -1, 1], // v3 Yellow
+        [1, -1, -1], // v4 Green
+        [1, 1, -1], // v5 Cyan
+        [-1, 1, -1], // v6 Blue
+        [-1, -1, -1] // v7 Black
+      ]
+
+      const indices = new Uint8Array(
+        [
+          [0, 1, 2, 0, 2, 3], // front
+          [0, 3, 4, 0, 4, 5], // right
+          [0, 5, 6, 0, 6, 1], // up
+          [1, 6, 7, 1, 7, 2], // left
+          [7, 4, 3, 7, 3, 2], // down
+          [4, 7, 6, 4, 6, 5] // back
+        ].flat()
+      )
+
+      const colors = [
+        [1, 0, 0, 1],
+        [1, 0, 0, 1],
+        [1, 0, 0, 1],
+        [1, 0, 0, 1],
+        [1, 1, 0, 1],
+        [1, 0, 1, 1],
+        [0, 1, 1, 1],
+        [1, 1, 1, 1]
+      ]
+
+      enableVertexAttribArray('a_Position', vertexs, 3)
+      enableVertexAttribArray('a_Color', colors, 4)
+      // 建立缓冲区对象
+      const indicesBuffer = gl.createBuffer()
+      //把缓冲区绑定到webgl 上下文对象上
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer)
+      // 往缓冲区写数据
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
+
+      function render() {
+        if(selected) {
+          angle += 0.05
+        }
+        const u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix')
+        modelMatrix.copy(new Matrix4().makeRotationY(angle))
+        gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
+
+        gl.clearColor(0, 0, 0, 1) //背景色
+        gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
+        gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_BYTE, 0)
+
+        requestAnimationFrame(render)
+      }
+
+      render()
+
+
+      canvas.addEventListener('pointermove', ({ clientX, clientY })=>{
+        let pos = toCropPos(new Vector2(clientX, clientY))
+        pos = toWordPos(pos)
+        selected = selectCube(pos)
+      })
+
+      function selectCube(pos) {
+        for(let i=0; i<indices.length; i+=3) {
+          if(_selectCube(pos, indices.slice(i, i+3))) {
+            return true
+          }
+        }
+        return false
+      }
+
+      function _selectCube(pos, triangle) {
+        let a = new Vector3(...vertexs[triangle[0]]).applyMatrix4(modelMatrix)
+        let b = new Vector3(...vertexs[triangle[1]]).applyMatrix4(modelMatrix)
+        let c = new Vector3(...vertexs[triangle[2]]).applyMatrix4(modelMatrix)
+        let e = camera.position
+        let dir = pos.sub(e)
+        let ab = b.clone().sub(a)
+        let ac = c.clone().sub(a)
+        let n = ab.cross(ac)
+        
+        // 方程1：(m-a).n=0 
+        // 方程2：k*dir=m-e
+
+        // m=k*dir+e
+        // (k*dir+e-a).n=0
+        // (a-e).n=k*dir.n
+        // k=((a-e).n)/(dir.n)
+
+        let k = (a.clone().sub(e).dot(n)) / (dir.clone().dot(n))
+        let m = dir.multiplyScalar(k).add(e) // 射线与平面的交叉点
+
+        return _inTriangle(m, [a, b, c])
+      }
+
+      function _inTriangle(pos, posList) {
+        let ab = posList[1].clone().sub(posList[0])
+        let bc = posList[2].clone().sub(posList[1])
+        let ca = posList[0].clone().sub(posList[2])
+        let ap = pos.clone().sub(posList[0])
+        let bp = pos.clone().sub(posList[1])
+        let cp = pos.clone().sub(posList[2])
+        let n = ab.clone().cross(bc)
+
+        if(ab.cross(ap).dot(n) < 0 || bc.cross(bp).dot(n) < 0 || ca.cross(cp).dot(n) < 0) {
+          return false
+        }
+
+        return true
+        
+      }
+
+      function toCropPos(pos) {
+        let x = (pos.x / canvas.clientWidth) * 2 - 1
+        let y = 1 - (pos.y / canvas.clientHeight) * 2
+        return new Vector2(x, y)
+      }
+
+      function toWordPos(pos) {
+        pos = new Vector3(pos.x, pos.y, 0).applyMatrix4(
+          new Matrix4().multiply(pvMatrix).invert()
+        )
+        return pos
+      }
+
+      function enableVertexAttribArray(prop, vertexs, size) {
+        const attr = gl.getAttribLocation(gl.program, prop)
+        const vertexBuffer = gl.createBuffer()
+        vertexs = vertexs.flat()
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        gl.vertexAttribPointer(attr, size, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(attr)
+      }
+    </script>
+  </body>
+</html>
