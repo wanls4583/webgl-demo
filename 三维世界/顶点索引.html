@@ -62,7 +62,7 @@
 				[0, 1, 0, 1],
 				[0, 0, 1, 1],
 			]
-			const indices = new Uint8Array([0, 1, 1, 2, 2, 0])
+			const indices = new Uint16Array([0, 1, 1, 2, 2, 0])
 
 			enableVertexAttribArray('a_Position', vertexs, 2);
 			enableVertexAttribArray('a_Color', colors, 4);
@@ -74,7 +74,7 @@
 			// 往缓冲区写数据
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
 
-			gl.drawElements(gl.LINES, indices.length, gl.UNSIGNED_BYTE, 0)
+			gl.drawElements(gl.LINES, indices.length, gl.UNSIGNED_SHORT, 0)
 
 			function enableVertexAttribArray(prop, vertexs, size) {
 				const attr = gl.getAttribLocation(gl.program, prop)
