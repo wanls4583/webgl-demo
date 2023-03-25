@@ -12,6 +12,10 @@ export function initShaders(gl, vSource, fSource, ifUse = true) {
     return program;
 }
 
+export function createProgram(gl, vSource, fSource) {
+    return initShaders(gl, vSource, fSource, false)
+}
+
 function loaderShader(gl, type, source) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
