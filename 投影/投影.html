@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Document</title>
+	<style>
+		body,
+		html {
+			margin: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		#canvas {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<canvas id="canvas"></canvas>
+	<!-- 缓冲区 -->
+	<script id="v1" type="x-shader/x-vertex">
+		attribute vec4 a_Position;
+		uniform mat4 u_PvMatrixLight;
+		void main() {
+			gl_Position = u_PvMatrixLight * a_Position;
+		}
+	</script>
+	<script id="f1" type="x-shader/x-fragment">
+		precision mediump float;
+		void main() {
+			gl_FragColor = vec4(gl_FragCoord.z, 0, 0, 1);
+		}
+	</script>
+	<!-- canvas画布 -->
+	<script id="v2" type="x-shader/x-vertex">
+		attribute vec4 a_Position;
+		uniform mat4 u_PvMatrixLight;
+		uniform mat4 u_PvMatrix;
+		varying vec4 v_ClipPosLight;
+		void main() {
+			gl_Position = u_PvMatrix * a_Position;
+			v_ClipPosLight = u_PvMatrixLight * a_Position;
+		}
+	</script>
+	<script id="f2" type="x-shader/x-fragment">
+		precision mediump float;
+		uniform sampler2D u_Sampler;
+		varying vec4 v_ClipPosLight;
+		void main() {
+			vec3 fragPos = (v_ClipPosLight.xyz / v_ClipPosLight.w) / 2.0 + 0.5; //坐标范围转换为0~1
+			vec4 shadowColor = texture2D(u_Sampler, fragPos.xy); //在投影贴图中的片元颜色
+			if(fragPos.z > shadowColor.r + 1.0/256.0) {
+				gl_FragColor = vec4(0.5, 0.5, 0.5, 1);
+			} else {
+				gl_FragColor = vec4(1.0, 1.0, 1.0, 1);
+			}
+		}
+	</script>
+	<script type="module">
+		import { createProgram } from '../js/common.js';
+		import { PerspectiveCamera } from '../js/three.module.js'
+		const canvas = document.getElementById('canvas');
+		const v1 = document.querySelector('#v1').innerText;
+		const f1 = document.querySelector('#f1').innerText;
+		const v2 = document.querySelector('#v2').innerText;
+		const f2 = document.querySelector('#f2').innerText;
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight;
+
+		const gl = canvas.getContext('webgl');
+		const program1 = createProgram(gl, v1, f1);
+		const program2 = createProgram(gl, v2, f2);
+
+		gl.enable(gl.DEPTH_TEST)
+
+		//纹理对象
+		const texture = gl.createTexture()
+		const triangleVertice = [
+			[-0.1, 0.1, 0.1],
+			[0.1, 0.1, 0.1],
+			[0, 0.1, -0.1],
+		]
+		const planeVertice = [
+			[-0.2, 0, 0.2],
+			[0.2, 0, 0.2],
+			[-0.2, 0, -0.2],
+			[0.2, 0, -0.2],
+		]
+
+		// 光源投影视图
+		const lightCamera = new PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 10.0)
+		lightCamera.position.set(0, 0.4, 0)
+		lightCamera.lookAt(0, 0, 0)
+		lightCamera.updateMatrixWorld(true)
+
+		// 相机投影视图
+		const camera = new PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 10.0)
+		camera.position.set(0, 0.2, -0.5)
+		camera.lookAt(0, 0, 0)
+		camera.updateMatrixWorld(true)
+
+		const pvMatrixLight = lightCamera.projectionMatrix.clone().multiply(lightCamera.matrixWorldInverse)
+		const pvMatrix = camera.projectionMatrix.clone().multiply(camera.matrixWorldInverse)
+
+
+		// 在帧缓冲区画投影贴图
+		{
+			gl.useProgram(program1)
+
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+			gl.activeTexture(gl.TEXTURE0)
+			gl.bindTexture(gl.TEXTURE_2D, texture)
+			gl.texParameteri(
+				gl.TEXTURE_2D,
+				gl.TEXTURE_MIN_FILTER,
+				gl.LINEAR
+			)
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 512, 512, 0, gl.RGB, gl.UNSIGNED_BYTE, null)
+
+			// 帧缓冲对象
+			const frameBuffer = gl.createFramebuffer()
+			// 绑定帧缓冲对象
+			gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer)
+			// 将纹理对象添加到帧缓冲区
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+
+			// 渲染缓冲对象
+			const depthbuffer = gl.createRenderbuffer()
+			// 绑定缓冲对象
+			gl.bindRenderbuffer(gl.RENDERBUFFER, depthbuffer)
+			// 设置缓冲对象
+			gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 512, 512)
+			// 绑定帧缓冲对象到渲染缓冲区
+			gl.framebufferRenderbuffer(
+				gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
+				gl.RENDERBUFFER, depthbuffer
+			);
+			// 设置渲染尺寸
+			gl.viewport(0, 0, 512, 512)
+
+			const a_Position = gl.getAttribLocation(program1, 'a_Position')
+
+			const u_PvMatrixLight = gl.getUniformLocation(program1, 'u_PvMatrixLight')
+			gl.uniformMatrix4fv(u_PvMatrixLight, false, pvMatrixLight.elements);
+
+			gl.clearColor(0, 0, 0, 1); //背景色
+			gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
+
+			// 画三角形
+			drawObj(a_Position, triangleVertice.flat(), 3)
+			// 画平面
+			drawObj(a_Position, planeVertice.flat(), 4)
+
+			// 清空帧缓冲区
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+			//让VIEWPORT 的尺寸和canvas画布保持一致
+			gl.viewport(0, 0, canvas.width, canvas.height)
+		}
+
+		// 在canvas上画图
+		{
+			gl.useProgram(program2)
+
+			const a_Position = gl.getAttribLocation(program2, 'a_Position')
+
+			const u_PvMatrixLight = gl.getUniformLocation(program2, 'u_PvMatrixLight')
+			const u_PvMatrix = gl.getUniformLocation(program2, 'u_PvMatrix')
+			gl.uniformMatrix4fv(u_PvMatrixLight, false, pvMatrixLight.elements);
+			gl.uniformMatrix4fv(u_PvMatrix, false, pvMatrix.elements);
+
+			const u_Sampler = gl.getUniformLocation(program2, 'u_Sampler')
+			gl.uniform1i(u_Sampler, 0)
+			gl.bindTexture(gl.TEXTURE_2D, texture)
+
+			gl.clearColor(0, 0, 0, 1); //背景色
+			gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+			// 画三角形
+			drawObj(a_Position, triangleVertice.flat(), 3)
+			// 画平面
+			drawObj(a_Position, planeVertice.flat(), 4)
+		}
+
+		function drawObj(position, vertice, size) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertice), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0)
+			gl.enableVertexAttribArray(position)
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, size)
+		}
+
+	</script>
+</body>
+
+</html>
