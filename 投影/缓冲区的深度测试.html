@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Document</title>
+		<style>
+			body,
+			html {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+			}
+			#canvas {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas"></canvas>
+        <!-- 缓冲区 -->
+		<script id="v1" type="x-shader/x-vertex">
+			attribute vec4 a_Position;
+			void main() {
+				gl_Position = a_Position;
+                gl_PointSize = 100.0;
+			}
+		</script>
+		<script id="f1" type="x-shader/x-fragment">
+			precision mediump float;
+			uniform vec4 u_FragColor;
+			void main() {
+				gl_FragColor = u_FragColor;
+			}
+		</script>
+        <!-- canvas画布 -->
+		<script id="v2" type="x-shader/x-vertex">
+			attribute vec4 a_Position;
+			attribute vec2 a_Pin;
+			varying vec2 v_Pin;
+			void main() {
+			    gl_Position = a_Position;
+                v_Pin = a_Pin;
+			}
+		</script>
+		<script id="f2" type="x-shader/x-fragment">
+			precision mediump float;
+            varying vec2 v_Pin;
+            uniform sampler2D u_Sampler;
+			void main() {
+                gl_FragColor = texture2D(u_Sampler,v_Pin);
+			}
+		</script>
+		<script type="module">
+			import { createProgram } from '../js/common.js';
+			const canvas = document.getElementById('canvas');
+			const v1 = document.querySelector('#v1').innerText;
+			const f1 = document.querySelector('#f1').innerText;
+            const v2 = document.querySelector('#v2').innerText;
+			const f2 = document.querySelector('#f2').innerText;
+			canvas.width = window.innerWidth;
+			canvas.height = window.innerHeight;
+
+			const gl = canvas.getContext('webgl');
+			const program1 = createProgram(gl, v1, f1);
+			const program2 = createProgram(gl, v2, f2);
+
+            gl.enable(gl.DEPTH_TEST)
+
+            gl.useProgram(program1)
+
+			const source = [
+				[-0.5, 0.5],
+				[-0.5, -0.5],
+				[0.5, 0.5],
+				[0.5, -0.5],
+			];
+
+            const pin = [
+				[0, 1],
+				[0, 0],
+				[1, 1],
+				[1, 0],
+			];
+
+            //纹理对象
+            const texture = gl.createTexture()
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, texture)
+            gl.texParameteri(
+                gl.TEXTURE_2D,
+                gl.TEXTURE_MIN_FILTER,
+                gl.LINEAR
+            )
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 256, 256, 0, gl.RGB, gl.UNSIGNED_BYTE, null)
+            
+            // 帧缓冲对象
+            const frameBuffer = gl.createFramebuffer()
+			// 绑定帧缓冲对象
+            gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer)
+			// 将纹理对象添加到帧缓冲区
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+
+			// 渲染缓冲对象
+			const depthbuffer = gl.createRenderbuffer()
+			// 绑定缓冲对象
+			gl.bindRenderbuffer(gl.RENDERBUFFER, depthbuffer)
+			// 设置缓冲对象
+			gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 256, 256)
+			// 绑定帧缓冲对象到渲染缓冲区
+			gl.framebufferRenderbuffer(
+				gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
+				gl.RENDERBUFFER, depthbuffer
+			);
+
+			const a_Position = gl.getAttribLocation(program1, 'a_Position')
+			const u_FragColor = gl.getUniformLocation(program1, 'u_FragColor')
+
+            // 设置渲染尺寸
+            gl.viewport(0, 0, 256, 256)
+
+            gl.clearColor(0.4, 0.6, 0.9, 1); //背景色
+			gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
+
+			gl.uniform4f(u_FragColor, 1, 0, 0, 1);
+			gl.vertexAttrib3f(a_Position, 0, 0, -0.1);
+			gl.drawArrays(gl.POINTS, 0, 1);
+
+			gl.uniform4f(u_FragColor, 1, 1, 0, 1);
+			gl.vertexAttrib3f(a_Position, 0.1, 0.1, 0.1);
+			gl.drawArrays(gl.POINTS, 0, 1);
+
+            // 清空帧缓冲区
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+            //让VIEWPORT 的尺寸和canvas画布保持一致
+            gl.viewport(0, 0, canvas.width, canvas.height)
+
+            gl.useProgram(program2)
+
+            const a_Position2 = gl.getAttribLocation(program2, 'a_Position')
+            gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(source.flat()), gl.STATIC_DRAW);
+            gl.vertexAttribPointer(a_Position2, 2, gl.FLOAT, false, 0, 0)
+            gl.enableVertexAttribArray(a_Position2)
+            
+            const a_Pin = gl.getAttribLocation(program2, 'a_Pin')
+            gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pin.flat()), gl.STATIC_DRAW);
+            gl.vertexAttribPointer(a_Pin, 2, gl.FLOAT, false, 0, 0)
+            gl.enableVertexAttribArray(a_Pin)
+
+            const u_Sampler = gl.getUniformLocation(program2, 'u_Sampler')
+            gl.uniform1i(u_Sampler, 0)
+            gl.bindTexture(gl.TEXTURE_2D, texture)
+
+            gl.clearColor(0, 0, 0, 1); //背景色
+			gl.clear(gl.COLOR_BUFFER_BIT); //填充背景色
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+		</script>
+	</body>
+</html>
