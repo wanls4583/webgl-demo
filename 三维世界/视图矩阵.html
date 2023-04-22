@@ -83,16 +83,16 @@
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
       initShaders(gl, vSource, fSource)
 
-      let eye = new Vector3(0.3, 0.2, 0.5)
-      let target = new Vector3(0, 0, 0)
+      let eye = new Vector3(0.1, 0.2, 0.5)
+      let target = new Vector3(0.2, 0, 0)
       let up = new Vector3(0, 1, 0)
 
       let rotationMatrix = new Matrix4().lookAt(eye, target, up)
-      // console.log(rotationMatrix)
-      // rotationMatrix = lookAt1(eye, target, up)
-      // console.log(rotationMatrix)
+      print('rotationMatrix1', rotationMatrix)
+      rotationMatrix = lookAt1(eye, target, up)
+      print('rotationMatrix2', rotationMatrix)
       rotationMatrix = lookAt2(eye, target, up)
-      // console.log(rotationMatrix)
+      print('rotationMatrix3', rotationMatrix)
       let positionMatrix = new Matrix4().setPosition(eye)
       positionMatrix = new Matrix4().set(
         1, 0, 0, eye.x,
@@ -102,10 +102,10 @@
       )
       print('positionMatrix:', positionMatrix)
       let matrixWorld = new Matrix4().multiplyMatrices(positionMatrix, rotationMatrix)
-      let viewMatrix = new Matrix4().multiplyMatrices(positionMatrix, rotationMatrix).invert()
-      print('matrixWorld:', positionMatrix.multiply(rotationMatrix))
+      let viewMatrix = matrixWorld.clone().invert()
       print('matrixWorld:', matrixWorld)
       print('matrixWorldInverse:', viewMatrix)
+      print('matrixWorldInverse:', new Matrix4().multiplyMatrices(rotationMatrix.invert(), positionMatrix.invert()))
 
       const u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
       gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements)
@@ -187,14 +187,6 @@
           a.z, b.z, c.z, 0,
           0, 0, 0, 1
         )
-        //位移矩阵
-        const mt = new Matrix4().set(
-          1, 0, 0, e.x,
-          0, 1, 0, e.y,
-          0, 0, 1, e.z,
-          0, 0, 0, 1
-        )
-        print('lookAt2', mt.multiply(mr))
         return mr
       }
 
