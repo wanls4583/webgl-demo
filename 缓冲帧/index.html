@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+</body>
+<script type="vertex" id="vertex">
+    attribute vec4 a_Position;
+    attribute vec2 a_Pin;
+    varying vec2 v_Pin;
+    void main() {
+        gl_Position = a_Position;
+        v_Pin = a_Pin;
+    }
+</script>
+<script type="fragment" id="fragment">
+    precision mediump float;
+    uniform sampler2D u_img;
+    uniform int u_rgb;
+    varying vec2 v_Pin;
+    void main() {
+        vec4 color = vec4(0.0);
+        if(u_rgb == 1) {
+            color.r += 0.5;
+        }
+        if(u_rgb == 2) {
+            color.g += 0.5;
+        }
+        if(u_rgb == 3) {
+            color.b += 0.5;
+        }
+        gl_FragColor = texture2D(u_img, v_Pin) + color;
+    }
+</script>
+<script type="module">
+    import { initShaders, loadImg } from '../js/common.js'
+
+    const canvas = document.getElementById('canvas')
+    const vs = document.getElementById('vertex').innerText
+    const fs = document.getElementById('fragment').innerText
+
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+
+    const gl = canvas.getContext('webgl')
+
+    initShaders(gl, vs, fs)
+
+    const vertexs = new Float32Array([
+        -0.5, 0.5,
+        -0.5, -0.5,
+        0.5, 0.5,
+        0.5, 0.5,
+        -0.5, -0.5,
+        0.5, -0.5
+    ])
+    const frameVertexs = new Float32Array([
+        -1, 1,
+        -1, -1,
+        1, 1,
+        1, 1,
+        -1, -1,
+        1, -1
+    ])
+    const pins = new Uint8Array([
+        1, 0,
+        0, 0,
+        1, 1,
+        1, 1,
+        0, 0,
+        1, 0
+    ])
+    const a_Position = gl.getAttribLocation(gl.program, 'a_Position')
+    const a_Pin = gl.getAttribLocation(gl.program, 'a_Pin')
+    const u_img = gl.getUniformLocation(gl.program, 'u_img')
+    const u_rgb = gl.getUniformLocation(gl.program, 'u_rgb')
+
+    const vertexBuffer1 = gl.createBuffer()
+    const vertexBuffer2 = gl.createBuffer()
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer2)
+    gl.bufferData(gl.ARRAY_BUFFER, pins, gl.STATIC_DRAW)
+    gl.vertexAttribPointer(a_Pin, 2, gl.UNSIGNED_BYTE, false, 0, 0)
+    gl.enableVertexAttribArray(a_Pin)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer1)
+    gl.uniform1i(u_img, 0)
+
+    const texture = createTexture()
+    const frameArr = []
+
+    frameArr.push(createFramebuffer())
+    frameArr.push(createFramebuffer())
+
+    loadImg('../img/leaves.jpg').then(img => {
+        setFramebuffer(frameArr[0])
+        gl.bindTexture(gl.TEXTURE_2D, frameArr[0].texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, canvas.width, canvas.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.uniform1i(u_rgb, 1)
+        texImage2D(img)
+        render('frame')
+
+        setFramebuffer(frameArr[1])
+        gl.bindTexture(gl.TEXTURE_2D, frameArr[1].texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, canvas.width, canvas.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null)
+        gl.bindTexture(gl.TEXTURE_2D, frameArr[0].texture)
+        gl.uniform1i(u_rgb, 2)
+        render('frame')
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.uniform1i(u_rgb, 3)
+        gl.bindTexture(gl.TEXTURE_2D, frameArr[1].texture)
+        render()
+    })
+
+    function render(type) {
+        if(type === 'frame') {
+            gl.bufferData(gl.ARRAY_BUFFER, frameVertexs, gl.STATIC_DRAW)
+        } else {
+            gl.bufferData(gl.ARRAY_BUFFER, vertexs, gl.STATIC_DRAW)
+        }
+        gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(a_Position)
+        gl.clearColor(0, 0, 0, 1)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+    }
+
+    function texImage2D(img) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img)
+    }
+
+    function setFramebuffer(framebuffer) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    }
+
+    function createFramebuffer() {
+        const framebuffer = gl.createFramebuffer()
+        framebuffer.texture = createTexture()
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, framebuffer.texture, 0)
+
+        return framebuffer
+    }
+
+    function createTexture() {
+        const texture = gl.createTexture()
+
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texParameteri(
+            gl.TEXTURE_2D,
+            gl.TEXTURE_MIN_FILTER,
+            gl.LINEAR
+        )
+        gl.texParameteri(
+            gl.TEXTURE_2D,
+            gl.TEXTURE_WRAP_S,
+            gl.CLAMP_TO_EDGE
+        )
+        gl.texParameteri(
+            gl.TEXTURE_2D,
+            gl.TEXTURE_WRAP_T,
+            gl.CLAMP_TO_EDGE
+        )
+
+        return texture
+    }
+
+</script>
+
+</html>
