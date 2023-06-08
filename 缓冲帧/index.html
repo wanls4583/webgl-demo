@@ -116,16 +116,12 @@
 
     loadImg('../img/leaves.jpg').then(img => {
         setFramebuffer(frameArr[0])
-        gl.bindTexture(gl.TEXTURE_2D, frameArr[0].texture)
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, canvas.width, canvas.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null)
         gl.bindTexture(gl.TEXTURE_2D, texture)
         gl.uniform1i(u_rgb, 1)
         texImage2D(img)
         render('frame')
 
         setFramebuffer(frameArr[1])
-        gl.bindTexture(gl.TEXTURE_2D, frameArr[1].texture)
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, canvas.width, canvas.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null)
         gl.bindTexture(gl.TEXTURE_2D, frameArr[0].texture)
         gl.uniform1i(u_rgb, 2)
         render('frame')
@@ -155,6 +151,8 @@
 
     function setFramebuffer(framebuffer) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+        gl.bindTexture(gl.TEXTURE_2D, framebuffer.texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, canvas.width, canvas.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null)
     }
 
     function createFramebuffer() {
