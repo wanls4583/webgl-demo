@@ -66,27 +66,41 @@
       const gl = canvas.getContext('webgl')
 
       gl.enable(gl.BLEND) //开启混合
+      gl.enable(gl.DEPTH_TEST)  
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) //定义混合像素算法的函数
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 
       const solidProgram = initShaders(gl, vSource1, fSource1, false)
       const textureProgram = initShaders(gl, vSource2, fSource2, false)
 
+      const buffer1 = setBuffer([
+        [-0.1, -0.1, -0.1],
+        [0.1, -0.1, -0.1],
+        [0, 0.1, -0.1]
+      ])
+
+      const buffer2 = setBuffer([
+        [-0.5, 0.5, 0.1],
+        [-0.5, -0.5, 0.1],
+        [0.5, 0.5, 0.1],
+        [0.5, -0.5, 0.1]
+      ])
+
       const img = new Image()
       img.src = '../img/erha.jpg'
       img.onload = () => {
         gl.clearColor(0, 0, 0, 1) //背景色
         gl.clear(gl.COLOR_BUFFER_BIT) //填充背景色
-        drawTexture(img)
         drawSolid()
+        drawTexture(img)
       }
 
       function drawSolid() {
-        const vertexs = [
-          [-0.1, -0.1],
-          [0.1, -0.1],
-          [0, 0.1]
-        ]
+        // const vertexs = [
+        //   [-0.1, -0.1, -0.1],
+        //   [0.1, -0.1, -0.1],
+        //   [0, 0.1, -0.1]
+        // ]
         const colors = [
           [1, 0, 0, 1],
           [0, 1, 0, 1],
@@ -95,18 +109,18 @@
         gl.program = solidProgram
         gl.useProgram(solidProgram)
 
-        enableVertexAttribArray('a_Position', vertexs, 2)
+        setAttr('a_Position', buffer1, 3)
         enableVertexAttribArray('a_Color', colors, 4)
-        gl.drawArrays(gl.TRIANGLES, 0, vertexs.length)
+        gl.drawArrays(gl.TRIANGLES, 0, 3)
       }
 
       function drawTexture(image) {
-        const vertexs = [
-          [-0.5, 0.5],
-          [-0.5, -0.5],
-          [0.5, 0.5],
-          [0.5, -0.5]
-        ]
+        // const vertexs = [
+        //   [-0.5, 0.5, 0.1],
+        //   [-0.5, -0.5, 0.1],
+        //   [0.5, 0.5, 0.1],
+        //   [0.5, -0.5, 0.1]
+        // ]
         const pins = [
           [0, 1], //左上
           [0, 0], //左下
@@ -116,7 +130,7 @@
         gl.program = textureProgram
         gl.useProgram(textureProgram)
 
-        enableVertexAttribArray('a_Position', vertexs, 2)
+        setAttr('a_Position', buffer2, 3)
         enableVertexAttribArray('a_Pin', pins, 2)
 
         const u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler')
@@ -137,6 +151,21 @@
         vertexs = vertexs.flat()
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        gl.vertexAttribPointer(attr, size, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(attr)
+      }
+
+      function setBuffer(vertexs) {
+        const vertexBuffer = gl.createBuffer()
+        vertexs = vertexs.flat()
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexs), gl.STATIC_DRAW)
+        return vertexBuffer
+      }
+
+      function setAttr(prop, vertexBuffer, size) {
+        const attr = gl.getAttribLocation(gl.program, prop)
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
         gl.vertexAttribPointer(attr, size, gl.FLOAT, false, 0, 0)
         gl.enableVertexAttribArray(attr)
       }
