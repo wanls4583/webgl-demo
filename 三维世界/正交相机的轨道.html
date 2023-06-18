@@ -138,7 +138,7 @@
         if(screenSpacePanning) {
           vy.setFromMatrixColumn(camera.matrix, 1)
         } else {
-          vy.setFromMatrixColumn(camera.matrix, 1)
+          vy.setFromMatrixColumn(camera.matrix, 2)
         }
         vy.multiplyScalar(deltaY)
         panOffset.copy(vx.add(vy))
